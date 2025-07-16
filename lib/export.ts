@@ -150,59 +150,385 @@ export function exportToDXF(
   locations: Location[],
   options: ExportOptions
 ): string {
-  const { width, height } = options
-  const bounds = calculateBounds(locations)
-
-  // Basic DXF header
-  const dxf = `
-0
+  const { width, height, strokeWidth = 1 } = options
+  
+  // DXF header
+  let dxf = `0
 SECTION
 2
 HEADER
 9
+$ACADVER
+1
+AC1015
+9
 $INSUNITS
 70
 4
-9
-$MEASUREMENT
+0
+ENDSEC
+0
+SECTION
+2
+TABLES
+0
+TABLE
+2
+LTYPE
+5
+5
+330
+0
+100
+AcDbSymbolTable
 70
 1
+0
+LTYPE
+5
+14
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbLinetypeTableRecord
+2
+BYLAYER
+70
+0
+3
+
+72
+65
+73
+0
+40
+0.0
+0
+LTYPE
+5
+15
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbLinetypeTableRecord
+2
+BYBLOCK
+70
+0
+3
+
+72
+65
+73
+0
+40
+0.0
+0
+LTYPE
+5
+16
+330
+5
+100
+AcDbSymbolTableRecord
+100
+AcDbLinetypeTableRecord
+2
+CONTINUOUS
+70
+0
+3
+Solid line
+72
+65
+73
+0
+40
+0.0
+0
+ENDTAB
+0
+TABLE
+2
+LAYER
+5
+2
+330
+0
+100
+AcDbSymbolTable
+70
+1
+0
+LAYER
+5
+10
+330
+2
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+2
+0
+70
+0
+62
+7
+6
+CONTINUOUS
+370
+0
+390
+F
+0
+ENDTAB
+0
+TABLE
+2
+STYLE
+5
+3
+330
+0
+100
+AcDbSymbolTable
+70
+1
+0
+STYLE
+5
+11
+330
+3
+100
+AcDbSymbolTableRecord
+100
+AcDbTextStyleTableRecord
+2
+STANDARD
+70
+0
+40
+0.0
+41
+1.0
+50
+0.0
+71
+0
+42
+0.2
+3
+txt
+4
+
+0
+ENDTAB
+0
+ENDSEC
+0
+SECTION
+2
+BLOCKS
+0
+BLOCK
+5
+20
+330
+1F
+100
+AcDbEntity
+8
+0
+100
+AcDbBlockBegin
+2
+*MODEL_SPACE
+70
+0
+10
+0.0
+20
+0.0
+30
+0.0
+3
+*MODEL_SPACE
+1
+
+0
+ENDBLK
+5
+21
+330
+1F
+100
+AcDbEntity
+8
+0
+100
+AcDbBlockEnd
+0
+BLOCK
+5
+1C
+330
+1B
+100
+AcDbEntity
+8
+0
+100
+AcDbBlockBegin
+2
+*PAPER_SPACE
+70
+0
+10
+0.0
+20
+0.0
+30
+0.0
+3
+*PAPER_SPACE
+1
+
+0
+ENDBLK
+5
+1D
+330
+1B
+100
+AcDbEntity
+8
+0
+100
+AcDbBlockEnd
 0
 ENDSEC
 0
 SECTION
 2
 ENTITIES
-  ${locations.map((location, _index) => {
-  const coords = projectLocationToSVG(location, bounds, width * 25.4, height * 25.4) // Convert to mm
-  return `
+`
+
+  // Add map boundary
+  dxf += `0
+LWPOLYLINE
+5
+100
+330
+1F
+100
+AcDbEntity
+8
 0
+100
+AcDbPolyline
+90
+5
+70
+1
+43
+${strokeWidth}
+10
+0.0
+20
+0.0
+10
+${width}
+20
+0.0
+10
+${width}
+20
+${height}
+10
+0.0
+20
+${height}
+10
+0.0
+20
+0.0
+`
+
+  // Add location markers
+  locations.forEach((location) => {
+    // Convert lat/lng to DXF coordinates (simplified)
+    const x = (location.lng + 180) * (width / 360)
+    const y = (location.lat + 90) * (height / 180)
+    
+    // Add circle for location
+    dxf += `0
 CIRCLE
+5
+${Math.floor(Math.random() * 1000) + 200}
+330
+1F
+100
+AcDbEntity
 8
-MARKERS
-10
-${coords.x}
-20
-${coords.y}
-40
-2.0
 0
-TEXT
-8
-LABELS
+100
+AcDbCircle
 10
-${coords.x + 5}
+${x}
 20
-${coords.y + 5}
+${y}
+30
+0.0
+40
+${strokeWidth * 2}
+`
+
+    // Add text label
+    dxf += `0
+TEXT
+5
+${Math.floor(Math.random() * 1000) + 300}
+330
+1F
+100
+AcDbEntity
+8
+0
+100
+AcDbText
+10
+${x}
+20
+${y + strokeWidth * 3}
+30
+0.0
+40
+${strokeWidth * 2}
 1
 ${location.name}
+50
+0.0
+7
+STANDARD
+41
+1.0
+51
+0.0
 `
-}).join('')}
-0
+  })
+
+  // DXF footer
+  dxf += `0
 ENDSEC
 0
 EOF
-  `.trim()
+`
 
   return dxf
 }
@@ -326,8 +652,8 @@ function generateGridLines(width: number, height: number, color: string, strokeW
 function generateLocationMarker(
   location: Location,
   coords: { x: number; y: number },
-  _index: number,
-  _options: ExportOptions
+  index: number,
+  options: ExportOptions
 ): string {
   if (location.iconType === 'emoji' && location.emoji) {
     return `<text x="${coords.x}" y="${coords.y + 5}" text-anchor="middle" font-size="24" fill="black">${location.emoji}</text>`
@@ -339,8 +665,8 @@ function generateLocationMarker(
 function generateLocationLabel(
   location: Location,
   coords: { x: number; y: number },
-  _index: number,
-  _options: ExportOptions
+  index: number,
+  options: ExportOptions
 ): string {
   const labelY = coords.y + 25
   return `

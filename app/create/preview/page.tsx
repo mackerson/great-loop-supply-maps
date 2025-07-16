@@ -1,30 +1,38 @@
 "use client"
 
-import { useEffect } from "react"
-import { useMapCreationStore } from "@/stores/map-creation"
-import MapPreview from "@/components/map-preview"
+import { useMapCreationStore } from '@/stores/map-creation'
+import { MapPreview } from '@/components/map-creation/map-preview'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function PreviewPage() {
-  const { setCurrentStep } = useMapCreationStore()
-  
+  const router = useRouter()
+  const { locations, canProceedToStep, setCurrentStep } = useMapCreationStore()
+
   useEffect(() => {
+    // Set current step and validate
     setCurrentStep(4)
-  }, [setCurrentStep])
+    if (!canProceedToStep(4)) {
+      router.push('/create')
+    }
+  }, [canProceedToStep, router, setCurrentStep])
+
+  const handleBack = () => {
+    router.push('/create/customize')
+  }
+
+  const handleNext = () => {
+    router.push('/create/download')
+  }
+
+  if (locations.length === 0) {
+    return null // Loading or redirect
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-light tracking-tight mb-4">
-            See your Great Loop adventure come to life
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Review your journey map and make any final adjustments before downloading.
-          </p>
-        </div>
-        
-        <MapPreview />
-      </div>
-    </div>
+    <MapPreview 
+      onBack={handleBack}
+      onNext={handleNext}
+    />
   )
 } 

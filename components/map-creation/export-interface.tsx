@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Input } from "@/components/ui/input"
 import { motion } from "framer-motion"
-import type { Location } from "@/lib/types"
-import { Download, ArrowLeft, Check, Package, Truck, ShoppingCart, Loader2 } from "lucide-react"
+import { Download, ArrowLeft, Check, Package, Truck, ShoppingCart } from "lucide-react"
 import { 
   exportToPNG, 
   exportToSVG, 
@@ -22,13 +21,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox"
 import AccountCreation from "@/components/account-creation"
 import PaymentProcessor from "@/components/payment-processor"
+import { useMapCreationStore } from '@/stores/map-creation'
 
 interface ExportInterfaceProps {
-  locations: Location[]
-  theme: string
-  font: string
-  strokeWidth: number
-  onBack: () => void
+  onBack?: () => void
 }
 
 // Export format options
@@ -80,42 +76,40 @@ const engravingMaterials = [
   },
 ]
 
-export default function ExportInterface({ locations, theme, font, strokeWidth, onBack }: ExportInterfaceProps) {
-  const [selectedFormat, setSelectedFormat] = useState("svg")
-  const [selectedSize, setSelectedSize] = useState("8x8")
-  const [orientation, setOrientation] = useState("portrait")
-  const [customWidth, setCustomWidth] = useState("8")
-  const [customHeight, setCustomHeight] = useState("8")
+export function ExportInterface({ onBack }: ExportInterfaceProps) {
+  const {
+    locations,
+    style,
+    export: exportOptions,
+    updateExport
+  } = useMapCreationStore()
+
   const [isExporting, setIsExporting] = useState(false)
   const [isExported, setIsExported] = useState(false)
   const [activeTab, setActiveTab] = useState("download")
-  const [selectedMaterial, setSelectedMaterial] = useState("")
-  const [showAccountCreation, setShowAccountCreation] = useState(false)
-  const [showPayment, setShowPayment] = useState(false)
-  const [hasAccount, setHasAccount] = useState(false)
 
   const handleExport = async () => {
     setIsExporting(true)
 
     try {
-      const selectedSizeData = canvasSizes.find(s => s.id === selectedSize)
-      const width = selectedSize === 'custom' ? parseFloat(customWidth) : selectedSizeData?.width || 8
-      const height = selectedSize === 'custom' ? parseFloat(customHeight) : selectedSizeData?.height || 8
+      const selectedSizeData = canvasSizes.find(s => s.id === exportOptions.selectedSize)
+      const width = exportOptions.selectedSize === 'custom' ? parseFloat(exportOptions.customWidth) : selectedSizeData?.width || 8
+      const height = exportOptions.selectedSize === 'custom' ? parseFloat(exportOptions.customHeight) : selectedSizeData?.height || 8
 
-             const options: ExportOptions = {
-         format: selectedFormat as 'png' | 'svg' | 'pdf' | 'dxf',
-         width,
-         height,
-         orientation: orientation as 'portrait' | 'landscape',
-         theme,
-         strokeWidth,
-         font
-       }
+      const options: ExportOptions = {
+        format: exportOptions.selectedFormat as 'png' | 'svg' | 'pdf' | 'dxf',
+        width,
+        height,
+        orientation: exportOptions.orientation,
+        theme: style.theme,
+        strokeWidth: style.strokeWidth,
+        font: style.font
+      }
 
       const timestamp = new Date().toISOString().slice(0, 10)
-      const filename = `story-map-${timestamp}.${selectedFormat}`
+      const filename = `story-map-${timestamp}.${exportOptions.selectedFormat}`
 
-      switch (selectedFormat) {
+      switch (exportOptions.selectedFormat) {
         case 'png': {
           // For PNG, we need to capture the actual map element
           const mapContainer = document.querySelector('[ref="mapContainerRef"]') as HTMLElement
@@ -162,21 +156,19 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
   }
 
   const handlePurchase = () => {
-    if (!hasAccount) {
-      setShowAccountCreation(true)
+    if (!exportOptions.hasAccount) {
+      updateExport({ showAccountCreation: true })
     } else {
-      setShowPayment(true)
+      updateExport({ showPayment: true })
     }
   }
 
   const handleAccountCreated = () => {
-    setHasAccount(true)
-    setShowAccountCreation(false)
-    setShowPayment(true)
+    updateExport({ hasAccount: true, showAccountCreation: false, showPayment: true })
   }
 
   const getThemeColors = () => {
-    switch (theme) {
+    switch (style.theme) {
       case "minimalist":
         return {
           background: "bg-white",
@@ -210,23 +202,23 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
 
   const themeColors = getThemeColors()
 
-  if (showAccountCreation) {
-    return <AccountCreation onAccountCreated={handleAccountCreated} onBack={() => setShowAccountCreation(false)} />
+  if (exportOptions.showAccountCreation) {
+    return <AccountCreation onAccountCreated={handleAccountCreated} onBack={() => updateExport({ showAccountCreation: false })} />
   }
 
-  if (showPayment) {
-    const selectedMaterialObj = engravingMaterials.find((m) => m.id === selectedMaterial)
+  if (exportOptions.showPayment) {
+    const selectedMaterialObj = engravingMaterials.find((m) => m.id === exportOptions.selectedMaterial)
     return (
       <PaymentProcessor
         material={selectedMaterialObj}
         size={
-          selectedSize === "custom"
-            ? `${customWidth}" × ${customHeight}"`
-            : canvasSizes.find((s) => s.id === selectedSize)?.name || ""
+          exportOptions.selectedSize === "custom"
+            ? `${exportOptions.customWidth}" × ${exportOptions.customHeight}"`
+            : canvasSizes.find((s) => s.id === exportOptions.selectedSize)?.name || ""
         }
-        orientation={orientation}
-        theme={theme}
-        onBack={() => setShowPayment(false)}
+        orientation={exportOptions.orientation}
+        theme={style.theme}
+        onBack={() => updateExport({ showPayment: false })}
       />
     )
   }
@@ -260,7 +252,11 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
               <div className="space-y-8 bg-card p-6 rounded-lg border border-border">
                 <div className="space-y-4">
                   <h2 className="text-xl font-light">Download Format</h2>
-                  <RadioGroup value={selectedFormat} onValueChange={setSelectedFormat} className="grid gap-3">
+                  <RadioGroup 
+                    value={exportOptions.selectedFormat} 
+                    onValueChange={(value) => updateExport({ selectedFormat: value })} 
+                    className="grid gap-3"
+                  >
                     {exportFormats.map((format) => (
                       <div key={format.id} className="flex items-start space-x-3">
                         <RadioGroupItem value={format.id} id={`dl-${format.id}`} className="mt-1" />
@@ -278,11 +274,13 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                 <div className="space-y-4">
                   <h2 className="text-xl font-light">Canvas Size</h2>
                   <div className="grid gap-4">
-                    <Select value={selectedSize} onValueChange={setSelectedSize}>
+                    <Select 
+                      value={exportOptions.selectedSize} 
+                      onValueChange={(value) => updateExport({ selectedSize: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a size" />
                       </SelectTrigger>
-
                       <SelectContent>
                         {canvasSizes.map((size) => (
                           <SelectItem key={size.id} value={size.id}>
@@ -292,7 +290,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                       </SelectContent>
                     </Select>
 
-                    {selectedSize === "custom" && (
+                    {exportOptions.selectedSize === "custom" && (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="custom-width">Width (inches)</Label>
@@ -301,8 +299,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             type="number"
                             min="1"
                             max="48"
-                            value={customWidth}
-                            onChange={(e) => setCustomWidth(e.target.value)}
+                            value={exportOptions.customWidth}
+                            onChange={(e) => updateExport({ customWidth: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
@@ -312,8 +310,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             type="number"
                             min="1"
                             max="48"
-                            value={customHeight}
-                            onChange={(e) => setCustomHeight(e.target.value)}
+                            value={exportOptions.customHeight}
+                            onChange={(e) => updateExport({ customHeight: e.target.value })}
                           />
                         </div>
                       </div>
@@ -321,7 +319,11 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
 
                     <div className="space-y-2">
                       <Label>Orientation</Label>
-                      <RadioGroup value={orientation} onValueChange={setOrientation} className="flex gap-4">
+                      <RadioGroup 
+                        value={exportOptions.orientation} 
+                        onValueChange={(value) => updateExport({ orientation: value as 'portrait' | 'landscape' })} 
+                        className="flex gap-4"
+                      >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="portrait" id="portrait" />
                           <Label htmlFor="portrait">Portrait</Label>
@@ -341,8 +343,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                 <div className="bg-card p-6 rounded-lg border border-border">
                   <div
                     className={`aspect-square ${
-                      orientation === "landscape" ? "rotate-90 scale-75" : ""
-                    } ${themeColors.background} ${font} rounded-lg border border-border overflow-hidden`}
+                      exportOptions.orientation === "landscape" ? "rotate-90 scale-75" : ""
+                    } ${themeColors.background} ${style.font} rounded-lg border border-border overflow-hidden`}
                   >
                     <div className="relative w-full h-full p-4">
                       {/* Simple map preview based on selected theme */}
@@ -360,9 +362,9 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             d={`M 5 ${y} C 25 ${y + (Math.random() * 6 - 3)}, 75 ${y + (Math.random() * 6 - 3)}, 95 ${y}`}
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth={strokeWidth * 0.15}
+                            strokeWidth={style.strokeWidth * 0.15}
                             strokeLinecap="round"
-                            className={theme === "vintage" ? "stroke-dasharray-2" : ""}
+                            className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                           />
                         ))}
 
@@ -373,9 +375,9 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             d={`M ${x} 5 C ${x + (Math.random() * 6 - 3)} 25, ${x + (Math.random() * 6 - 3)} 75, ${x} 95`}
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth={strokeWidth * 0.15}
+                            strokeWidth={style.strokeWidth * 0.15}
                             strokeLinecap="round"
-                            className={theme === "vintage" ? "stroke-dasharray-2" : ""}
+                            className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                           />
                         ))}
 
@@ -386,7 +388,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                           const x = 20 + (hash % 60)
                           const y = 20 + ((hash * 13) % 60)
 
-                          return <circle key={index} cx={x} cy={y} r={strokeWidth * 0.6} fill={themeColors.markers} />
+                          return <circle key={index} cx={x} cy={y} r={style.strokeWidth * 0.6} fill={themeColors.markers} />
                         })}
                       </svg>
 
@@ -401,9 +403,9 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                   </div>
 
                   <div className="mt-4 text-center text-sm text-muted-foreground">
-                    {selectedSize === "custom"
-                      ? `${customWidth}" × ${customHeight}" ${orientation}`
-                      : `${canvasSizes.find((s) => s.id === selectedSize)?.name} ${orientation}`}
+                    {exportOptions.selectedSize === "custom"
+                      ? `${exportOptions.customWidth}" × ${exportOptions.customHeight}" ${exportOptions.orientation}`
+                      : `${canvasSizes.find((s) => s.id === exportOptions.selectedSize)?.name} ${exportOptions.orientation}`}
                   </div>
                 </div>
 
@@ -411,26 +413,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                   <Button onClick={handleExport} className="w-full" size="lg" disabled={isExporting || isExported}>
                     {isExporting ? (
                       <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-current border-r-transparent rounded-full" />
                         Preparing your map...
                       </span>
                     ) : isExported ? (
@@ -441,7 +424,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                     ) : (
                       <span className="flex items-center">
                         <Download className="h-4 w-4 mr-2" />
-                        Download {selectedFormat.toUpperCase()} Map
+                        Download {exportOptions.selectedFormat.toUpperCase()} Map
                       </span>
                     )}
                   </Button>
@@ -464,12 +447,16 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                   <h2 className="text-xl font-light">Select Material</h2>
                   <p className="text-sm text-muted-foreground">Choose a premium material for your engraved map</p>
 
-                  <RadioGroup value={selectedMaterial} onValueChange={setSelectedMaterial} className="grid gap-4">
+                  <RadioGroup 
+                    value={exportOptions.selectedMaterial} 
+                    onValueChange={(value) => updateExport({ selectedMaterial: value })} 
+                    className="grid gap-4"
+                  >
                     {engravingMaterials.map((material) => (
                       <div
                         key={material.id}
                         className={`flex items-start space-x-3 p-3 rounded-lg border ${
-                          selectedMaterial === material.id ? "border-primary bg-accent/50" : "border-border"
+                          exportOptions.selectedMaterial === material.id ? "border-primary bg-accent/50" : "border-border"
                         }`}
                       >
                         <RadioGroupItem value={material.id} id={`material-${material.id}`} className="mt-1" />
@@ -497,11 +484,13 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                 <div className="space-y-4">
                   <h2 className="text-xl font-light">Size & Orientation</h2>
                   <div className="grid gap-4">
-                    <Select value={selectedSize} onValueChange={setSelectedSize}>
+                    <Select 
+                      value={exportOptions.selectedSize} 
+                      onValueChange={(value) => updateExport({ selectedSize: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a size" />
                       </SelectTrigger>
-
                       <SelectContent>
                         {canvasSizes.map((size) => (
                           <SelectItem key={size.id} value={size.id}>
@@ -511,7 +500,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                       </SelectContent>
                     </Select>
 
-                    {selectedSize === "custom" && (
+                    {exportOptions.selectedSize === "custom" && (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="custom-width-purchase">Width (inches)</Label>
@@ -520,8 +509,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             type="number"
                             min="1"
                             max="48"
-                            value={customWidth}
-                            onChange={(e) => setCustomWidth(e.target.value)}
+                            value={exportOptions.customWidth}
+                            onChange={(e) => updateExport({ customWidth: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
@@ -531,8 +520,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             type="number"
                             min="1"
                             max="48"
-                            value={customHeight}
-                            onChange={(e) => setCustomHeight(e.target.value)}
+                            value={exportOptions.customHeight}
+                            onChange={(e) => updateExport({ customHeight: e.target.value })}
                           />
                         </div>
                       </div>
@@ -540,7 +529,11 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
 
                     <div className="space-y-2">
                       <Label>Orientation</Label>
-                      <RadioGroup value={orientation} onValueChange={setOrientation} className="flex gap-4">
+                      <RadioGroup 
+                        value={exportOptions.orientation} 
+                        onValueChange={(value) => updateExport({ orientation: value as 'portrait' | 'landscape' })} 
+                        className="flex gap-4"
+                      >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="portrait" id="portrait-purchase" />
                           <Label htmlFor="portrait-purchase">Portrait</Label>
@@ -585,8 +578,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                   <CardContent className="space-y-4">
                     <div
                       className={`aspect-square ${
-                        orientation === "landscape" ? "rotate-90 scale-75" : ""
-                      } ${themeColors.background} ${font} rounded-lg border border-border overflow-hidden`}
+                        exportOptions.orientation === "landscape" ? "rotate-90 scale-75" : ""
+                      } ${themeColors.background} ${style.font} rounded-lg border border-border overflow-hidden`}
                     >
                       <div className="relative w-full h-full p-4">
                         {/* Map preview (same as download tab) */}
@@ -604,9 +597,9 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                               d={`M 5 ${y} C 25 ${y + (Math.random() * 6 - 3)}, 75 ${y + (Math.random() * 6 - 3)}, 95 ${y}`}
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth={strokeWidth * 0.15}
+                              strokeWidth={style.strokeWidth * 0.15}
                               strokeLinecap="round"
-                              className={theme === "vintage" ? "stroke-dasharray-2" : ""}
+                              className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                             />
                           ))}
 
@@ -617,9 +610,9 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                               d={`M ${x} 5 C ${x + (Math.random() * 6 - 3)} 25, ${x + (Math.random() * 6 - 3)} 75, ${x} 95`}
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth={strokeWidth * 0.15}
+                              strokeWidth={style.strokeWidth * 0.15}
                               strokeLinecap="round"
-                              className={theme === "vintage" ? "stroke-dasharray-2" : ""}
+                              className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                             />
                           ))}
 
@@ -630,7 +623,7 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                             const x = 20 + (hash % 60)
                             const y = 20 + ((hash * 13) % 60)
 
-                            return <circle key={index} cx={x} cy={y} r={strokeWidth * 0.6} fill={themeColors.markers} />
+                            return <circle key={index} cx={x} cy={y} r={style.strokeWidth * 0.6} fill={themeColors.markers} />
                           })}
                         </svg>
 
@@ -644,29 +637,29 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                       </div>
                     </div>
 
-                    {selectedMaterial && (
+                    {exportOptions.selectedMaterial && (
                       <div className="space-y-4 mt-6">
                         <div className="flex justify-between text-sm">
                           <span>Material</span>
                           <span className="font-medium">
-                            {engravingMaterials.find((m) => m.id === selectedMaterial)?.name}
+                            {engravingMaterials.find((m) => m.id === exportOptions.selectedMaterial)?.name}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Size</span>
                           <span>
-                            {selectedSize === "custom"
-                              ? `${customWidth}" × ${customHeight}"`
-                              : canvasSizes.find((s) => s.id === selectedSize)?.name}
+                            {exportOptions.selectedSize === "custom"
+                              ? `${exportOptions.customWidth}" × ${exportOptions.customHeight}"`
+                              : canvasSizes.find((s) => s.id === exportOptions.selectedSize)?.name}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Orientation</span>
-                          <span className="capitalize">{orientation}</span>
+                          <span className="capitalize">{exportOptions.orientation}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Theme</span>
-                          <span className="capitalize">{theme}</span>
+                          <span className="capitalize">{style.theme}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Shipping</span>
@@ -675,14 +668,14 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
                         <div className="pt-4 border-t border-border flex justify-between">
                           <span className="font-medium">Total</span>
                           <span className="font-medium">
-                            ${engravingMaterials.find((m) => m.id === selectedMaterial)?.price.toFixed(2)}
+                            ${engravingMaterials.find((m) => m.id === exportOptions.selectedMaterial)?.price.toFixed(2)}
                           </span>
                         </div>
                       </div>
                     )}
                   </CardContent>
                   <CardFooter className="flex flex-col space-y-4">
-                    <Button onClick={handlePurchase} className="w-full" size="lg" disabled={!selectedMaterial}>
+                    <Button onClick={handlePurchase} className="w-full" size="lg" disabled={!exportOptions.selectedMaterial}>
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       Proceed to Checkout
                     </Button>
@@ -705,8 +698,8 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
 
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm italic">
-                    "Transform your digital story into a tangible keepsake that will last for generations. Each engraved
-                    map is handcrafted with care to preserve your special moments."
+                    &quot;Transform your digital story into a tangible keepsake that will last for generations. Each engraved
+                    map is handcrafted with care to preserve your special moments.&quot;
                   </p>
                 </div>
               </div>
@@ -716,4 +709,4 @@ export default function ExportInterface({ locations, theme, font, strokeWidth, o
       </div>
     </motion.div>
   )
-}
+} 

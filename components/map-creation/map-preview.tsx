@@ -1,36 +1,39 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
 import { motion } from "framer-motion"
-import type { Location } from "@/lib/types"
-import ExportInterface from "@/components/export-interface"
 import mapboxgl from 'mapbox-gl'
 import { MAPBOX_ACCESS_TOKEN, getBounds } from '@/lib/mapbox'
+import { useMapCreationStore } from '@/stores/map-creation'
 
 // Import Mapbox CSS
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 interface MapPreviewProps {
-  locations: Location[]
-  theme: string
-  font: string
-  strokeWidth: number
   onBack?: () => void
+  onNext?: () => void
 }
 
-export default function MapPreview({ locations, theme, font, strokeWidth, onBack }: MapPreviewProps) {
-  const [showExport, setShowExport] = useState(false)
-  const [activeLocationIndex, setActiveLocationIndex] = useState(0)
+export function MapPreview({ onBack, onNext }: MapPreviewProps) {
+  const { 
+    locations, 
+    style, 
+    activeLocationIndex, 
+    setActiveLocationIndex,
+    nextStep
+  } = useMapCreationStore()
+  
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
-
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
   const handleExport = () => {
-    setShowExport(true)
+    if (onNext) {
+      onNext()
+    } else {
+      nextStep()
+    }
   }
 
   const handleZoomIn = () => {
@@ -46,7 +49,7 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
   }
 
   const getThemeColors = () => {
-    switch (theme) {
+    switch (style.theme) {
       case "minimalist":
         return {
           background: "bg-white",
@@ -107,9 +110,6 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
     const style = map.getStyle()
     const layers = style.layers || []
     
-    // Debug: log available layers (remove this after testing)
-    console.log('Available layers:', layers.map(l => l.id))
-    
     // Look for and modify water layers
     layers.forEach(layer => {
       if (layer.id.includes('water') && map.getLayer(layer.id)) {
@@ -159,7 +159,7 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
 
     // Apply theme-specific styling once the map loads
     mapInstance.on('style.load', () => {
-      applyThemeStyles(mapInstance, theme)
+      applyThemeStyles(mapInstance, style.theme)
     })
 
     // Add custom markers for each location
@@ -243,19 +243,7 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
     return () => {
       mapInstance.remove()
     }
-  }, [locations, theme, themeColors.markers])
-
-  if (showExport) {
-    return (
-      <ExportInterface
-        locations={locations}
-        theme={theme}
-        font={font}
-        strokeWidth={strokeWidth}
-        onBack={() => setShowExport(false)}
-      />
-    )
-  }
+  }, [locations, style.theme, themeColors.markers, setActiveLocationIndex])
 
   return (
     <motion.div
@@ -289,7 +277,7 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
               {/* Map Container */}
               <div
                 ref={mapContainerRef}
-                className={`relative flex-1 rounded-lg border border-border overflow-hidden ${font}`}
+                className={`relative flex-1 rounded-lg border border-border overflow-hidden ${style.font}`}
                 style={{ minHeight: '500px' }}
               >
                 {!MAPBOX_ACCESS_TOKEN && (
@@ -372,10 +360,10 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
                       </div>
                     )}
 
-                    {activeLocation.prompt && (
+                    {activeLocation.description && (
                       <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Prompt</p>
-                        <p className="text-sm italic">{activeLocation.prompt}</p>
+                        <p className="text-sm text-muted-foreground">Description</p>
+                        <p className="text-sm leading-relaxed">{activeLocation.description}</p>
                       </div>
                     )}
                   </div>
@@ -386,7 +374,7 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {locations.map((location, index) => (
                   <div
-                    key={index}
+                    key={location.id}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                       index === activeLocationIndex
                         ? 'bg-accent border-primary'
@@ -433,4 +421,4 @@ export default function MapPreview({ locations, theme, font, strokeWidth, onBack
       </div>
     </motion.div>
   )
-}
+} 

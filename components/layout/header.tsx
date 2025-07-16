@@ -29,7 +29,7 @@ export default function Header() {
               Products
             </Link>
             <Link href="/create" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Journey Maps
+              Create Maps
             </Link>
             <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
@@ -49,7 +49,7 @@ export default function Header() {
             
             {!isWorkflowPage && (
               <Button asChild size="sm">
-                <Link href="/create">Create Journey Map</Link>
+                <Link href="/create">Create Map</Link>
               </Button>
             )}
           </div>

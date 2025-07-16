@@ -1,19 +1,17 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { motion } from "framer-motion"
-import type { Location } from "@/lib/types"
-import MapPreview from "@/components/map-preview"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ArrowLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
+import { useMapCreationStore } from '@/stores/map-creation'
 
 interface StyleCustomizerProps {
-  locations: Location[]
   onBack?: () => void
+  onNext?: () => void
 }
 
 // Map theme options
@@ -30,30 +28,31 @@ const fontOptions = [
   { id: "mono", name: "Monospace", value: "font-mono" },
 ]
 
-export default function StyleCustomizer({ locations, onBack }: StyleCustomizerProps) {
-  const [selectedTheme, setSelectedTheme] = useState("minimalist")
-  const [selectedFont, setSelectedFont] = useState("font-sans")
-  const [strokeWidth, setStrokeWidth] = useState(2)
-  const [showPreview, setShowPreview] = useState(false)
+export function StyleCustomizer({ onBack, onNext }: StyleCustomizerProps) {
+  const { 
+    style, 
+    updateStyle,
+    nextStep
+  } = useMapCreationStore()
 
   const handleStrokeWidthChange = (value: number[]) => {
-    setStrokeWidth(value[0])
+    updateStyle({ strokeWidth: value[0] })
   }
 
-  const proceedToPreview = () => {
-    setShowPreview(true)
+  const handleThemeChange = (theme: string) => {
+    updateStyle({ theme: theme as 'minimalist' | 'woodburn' | 'vintage' | 'inverted' })
   }
 
-  if (showPreview) {
-    return (
-      <MapPreview
-        locations={locations}
-        theme={selectedTheme}
-        font={selectedFont}
-        strokeWidth={strokeWidth}
-        onBack={() => setShowPreview(false)}
-      />
-    )
+  const handleFontChange = (font: string) => {
+    updateStyle({ font })
+  }
+
+  const proceedToNextStep = () => {
+    if (onNext) {
+      onNext()
+    } else {
+      nextStep()
+    }
   }
 
   return (
@@ -85,7 +84,7 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
               <h2 className="text-xl font-light">Map Theme</h2>
               <p className="text-sm text-muted-foreground">Select a theme that works well for engraving or printing</p>
 
-              <RadioGroup value={selectedTheme} onValueChange={setSelectedTheme} className="grid gap-4">
+              <RadioGroup value={style.theme} onValueChange={handleThemeChange} className="grid gap-4">
                 {mapThemes.map((theme) => (
                   <div key={theme.id} className="flex items-start space-x-3">
                     <RadioGroupItem value={theme.id} id={theme.id} className="mt-1" />
@@ -105,7 +104,7 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="font-select">Font Style</Label>
-                  <Select value={selectedFont} onValueChange={setSelectedFont}>
+                  <Select value={style.font} onValueChange={handleFontChange}>
                     <SelectTrigger id="font-select">
                       <SelectValue placeholder="Select a font" />
                     </SelectTrigger>
@@ -127,14 +126,14 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <Label htmlFor="stroke-width">Stroke Width</Label>
-                    <span className="text-sm text-muted-foreground">{strokeWidth}px</span>
+                    <span className="text-sm text-muted-foreground">{style.strokeWidth}px</span>
                   </div>
                   <Slider
                     id="stroke-width"
                     min={1}
                     max={5}
                     step={0.5}
-                    value={[strokeWidth]}
+                    value={[style.strokeWidth]}
                     onValueChange={handleStrokeWidthChange}
                   />
                 </div>
@@ -146,14 +145,14 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
           <div className="space-y-4">
             <h2 className="text-xl font-light">Preview</h2>
             <div className="bg-card aspect-square rounded-lg border border-border overflow-hidden">
-              <div className={`w-full h-full p-4 ${selectedFont}`}>
+              <div className={`w-full h-full p-4 ${style.font}`}>
                 <div className="relative w-full h-full">
                   {/* Simple map preview based on selected theme */}
                   <div
                     className={`w-full h-full rounded-lg ${
-                      selectedTheme === "minimalist"
+                      style.theme === "minimalist"
                         ? "bg-white"
-                        : selectedTheme === "woodburn"
+                        : style.theme === "woodburn"
                           ? "bg-amber-50"
                           : "bg-stone-100"
                     }`}
@@ -165,9 +164,9 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                       viewBox="0 0 100 100"
                       preserveAspectRatio="none"
                       className={`${
-                        selectedTheme === "minimalist"
+                        style.theme === "minimalist"
                           ? "text-slate-300"
-                          : selectedTheme === "woodburn"
+                          : style.theme === "woodburn"
                             ? "text-amber-800"
                             : "text-stone-500"
                       }`}
@@ -179,9 +178,9 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                           d={`M 10 ${y} C 30 ${y + 5}, 70 ${y - 5}, 90 ${y}`}
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth={strokeWidth * 0.2}
+                          strokeWidth={style.strokeWidth * 0.2}
                           strokeLinecap="round"
-                          className={selectedTheme === "vintage" ? "stroke-dasharray-2" : ""}
+                          className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                         />
                       ))}
 
@@ -192,9 +191,9 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                           d={`M ${x} 10 C ${x - 5} 30, ${x + 5} 70, ${x} 90`}
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth={strokeWidth * 0.2}
+                          strokeWidth={style.strokeWidth * 0.2}
                           strokeLinecap="round"
-                          className={selectedTheme === "vintage" ? "stroke-dasharray-2" : ""}
+                          className={style.theme === "vintage" ? "stroke-dasharray-2" : ""}
                         />
                       ))}
 
@@ -208,11 +207,11 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                           key={i}
                           cx={pos.x}
                           cy={pos.y}
-                          r={strokeWidth * 0.8}
+                          r={style.strokeWidth * 0.8}
                           fill={
-                            selectedTheme === "minimalist"
+                            style.theme === "minimalist"
                               ? "#475569"
-                              : selectedTheme === "woodburn"
+                              : style.theme === "woodburn"
                                 ? "#92400e"
                                 : "#44403c"
                           }
@@ -224,9 +223,9 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                     <div className="absolute top-1/4 left-1/4 transform -translate-x-1/2 -translate-y-1/2">
                       <div
                         className={`text-xs ${
-                          selectedTheme === "minimalist"
+                          style.theme === "minimalist"
                             ? "text-slate-700"
-                            : selectedTheme === "woodburn"
+                            : style.theme === "woodburn"
                               ? "text-amber-900"
                               : "text-stone-700"
                         }`}
@@ -238,9 +237,9 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                     <div className="absolute top-2/3 right-1/4 transform translate-x-1/2 -translate-y-1/2">
                       <div
                         className={`text-xs ${
-                          selectedTheme === "minimalist"
+                          style.theme === "minimalist"
                             ? "text-slate-700"
-                            : selectedTheme === "woodburn"
+                            : style.theme === "woodburn"
                               ? "text-amber-900"
                               : "text-stone-700"
                         }`}
@@ -252,27 +251,15 @@ export default function StyleCustomizer({ locations, onBack }: StyleCustomizerPr
                 </div>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <h3 className="text-lg font-light">Engraving Clarity</h3>
-              <p className="text-sm text-muted-foreground">
-                {strokeWidth < 2
-                  ? "Fine details, best for high-precision engraving."
-                  : strokeWidth < 3.5
-                    ? "Balanced details, suitable for most engraving methods."
-                    : "Bold lines, ideal for larger engravings and wood burning."}
-              </p>
-            </div>
-
-            <div className="pt-4">
-              <Button onClick={proceedToPreview} className="w-full flex items-center justify-center" size="lg">
-                Continue to Preview
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
           </div>
+        </div>
+
+        <div className="flex justify-center">
+          <Button onClick={proceedToNextStep} size="lg" className="px-8">
+            Continue to Preview
+          </Button>
         </div>
       </div>
     </motion.div>
   )
-}
+} 

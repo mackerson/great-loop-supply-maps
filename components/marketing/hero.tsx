@@ -24,18 +24,18 @@ export default function Hero() {
         className="space-y-6 max-w-xl"
       >
         <h1 className="text-4xl font-light tracking-tight">
-          Chart Your Great Loop Journey
+          Chart Your Adventure
         </h1>
         <p className="text-lg text-muted-foreground">
-          Create beautiful maps of your Great Loop adventure. Document the ports, memories, and moments that shaped your journey around America&apos;s Great Loop.
+          Create beautiful maps of your journey. Whether it&apos;s the Great Loop, Appalachian Trail, or any adventure - document the places, memories, and moments that shaped your story.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button asChild size="lg" className="text-lg px-8 py-6 rounded-full transition-all duration-300 hover:scale-105">
-            <Link href="/create">Create Your Journey Map</Link>
+            <Link href="/create">Create Your Map</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="text-lg px-8 py-6 rounded-full">
-            <Link href="/examples">See Great Loop Examples</Link>
+            <Link href="/examples">See Examples</Link>
           </Button>
         </div>
       </motion.div>

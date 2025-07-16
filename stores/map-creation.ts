@@ -1,12 +1,23 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { Template, IconSet } from '@/lib/templates'
+import { templateRegistry } from '@/lib/template-registry'
 
 export interface Location {
   id: string
   name: string
   address: string
   coordinates: [number, number] // [lng, lat]
+  lat: number
+  lng: number
   description?: string
+  // Chapter-specific properties
+  iconType?: 'icon' | 'emoji' | 'image'
+  icon?: string
+  emoji?: string
+  customImage?: string | null
+  caption?: string
+  narrative?: string
 }
 
 export interface Chapter {
@@ -21,6 +32,7 @@ export interface Chapter {
 
 export interface StyleOptions {
   theme: 'minimalist' | 'woodburn' | 'vintage' | 'inverted'
+  font: string
   fontSize: number
   strokeWidth: number
   showLabels: boolean
@@ -35,7 +47,22 @@ export interface PreviewSettings {
   resolution: number
 }
 
+export interface ExportOptions {
+  selectedFormat: string
+  selectedSize: string
+  customWidth: string
+  customHeight: string
+  orientation: 'portrait' | 'landscape'
+  selectedMaterial: string
+  showAccountCreation: boolean
+  showPayment: boolean
+  hasAccount: boolean
+}
+
 export interface MapCreationState {
+  // Template selection
+  selectedTemplate: Template | null
+  
   // Current step (1-5)
   currentStep: number
   
@@ -44,6 +71,7 @@ export interface MapCreationState {
   
   // Step 2: Chapters
   chapters: Chapter[]
+  activeLocationIndex: number
   
   // Step 3: Customization
   style: StyleOptions
@@ -51,9 +79,22 @@ export interface MapCreationState {
   // Step 4: Preview
   preview: PreviewSettings
   
+  // Step 5: Export
+  export: ExportOptions
+  
   // Draft management
   isDraft: boolean
   lastSaved: string | null
+  
+  // Template actions
+  setTemplate: (template: Template) => void
+  getPromptForStep: (step: number) => string
+  getPromptDescriptionForStep: (step: number) => string
+  getPromptPlaceholderForStep: (step: number) => string
+  getPromptHelpTextForStep: (step: number) => string
+  getTerminology: (key: string) => string
+  getTerminologyPlural: (key: string) => string
+  getTemplateIconSets: () => IconSet[]
   
   // Actions
   setCurrentStep: (step: number) => void
@@ -64,6 +105,7 @@ export interface MapCreationState {
   addLocation: (location: Omit<Location, 'id'>) => void
   updateLocation: (id: string, updates: Partial<Location>) => void
   removeLocation: (id: string) => void
+  setActiveLocationIndex: (index: number) => void
   
   // Chapter actions
   addChapter: (chapter: Omit<Chapter, 'id'>) => void
@@ -75,6 +117,9 @@ export interface MapCreationState {
   
   // Preview actions
   updatePreview: (updates: Partial<PreviewSettings>) => void
+  
+  // Export actions
+  updateExport: (updates: Partial<ExportOptions>) => void
   
   // Draft management
   saveDraft: () => void
@@ -89,11 +134,14 @@ export interface MapCreationState {
 }
 
 const initialState = {
+  selectedTemplate: null,
   currentStep: 1,
   locations: [],
   chapters: [],
+  activeLocationIndex: 0,
   style: {
     theme: 'minimalist' as const,
+    font: 'font-sans',
     fontSize: 14,
     strokeWidth: 2,
     showLabels: true,
@@ -106,6 +154,17 @@ const initialState = {
     format: 'png' as const,
     resolution: 300,
   },
+  export: {
+    selectedFormat: 'svg',
+    selectedSize: '8x8',
+    customWidth: '8',
+    customHeight: '8',
+    orientation: 'portrait' as const,
+    selectedMaterial: '',
+    showAccountCreation: false,
+    showPayment: false,
+    hasAccount: false,
+  },
   isDraft: false,
   lastSaved: null,
 }
@@ -114,6 +173,50 @@ export const useMapCreationStore = create<MapCreationState>()(
   persist(
     (set, get) => ({
       ...initialState,
+      
+      // Template actions
+      setTemplate: (template) => set({ selectedTemplate: template }),
+      getPromptForStep: (step) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return ''
+        const prompt = selectedTemplate.config.prompts.find(p => p.step === step)
+        return prompt?.title || ''
+      },
+      getPromptDescriptionForStep: (step) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return ''
+        const prompt = selectedTemplate.config.prompts.find(p => p.step === step)
+        return prompt?.description || ''
+      },
+      getPromptPlaceholderForStep: (step) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return ''
+        const prompt = selectedTemplate.config.prompts.find(p => p.step === step)
+        return prompt?.placeholder || ''
+      },
+      getPromptHelpTextForStep: (step) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return ''
+        const prompt = selectedTemplate.config.prompts.find(p => p.step === step)
+        return prompt?.helpText || ''
+      },
+      getTerminology: (key) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return key
+        const term = selectedTemplate.config.terminology.find(t => t.key === key)
+        return term?.term || key
+      },
+      getTerminologyPlural: (key) => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return key
+        const term = selectedTemplate.config.terminology.find(t => t.key === key)
+        return term?.plural || term?.term || key
+      },
+      getTemplateIconSets: () => {
+        const { selectedTemplate } = get()
+        if (!selectedTemplate) return []
+        return selectedTemplate.config.iconSets
+      },
       
       // Step management
       setCurrentStep: (step) => set({ currentStep: step }),
@@ -153,6 +256,9 @@ export const useMapCreationStore = create<MapCreationState>()(
           isDraft: true,
         }))
       },
+      setActiveLocationIndex: (index) => {
+        set({ activeLocationIndex: index })
+      },
       
       // Chapter actions
       addChapter: (chapter) => {
@@ -189,6 +295,14 @@ export const useMapCreationStore = create<MapCreationState>()(
       updatePreview: (updates) => {
         set((state) => ({
           preview: { ...state.preview, ...updates },
+          isDraft: true,
+        }))
+      },
+      
+      // Export actions
+      updateExport: (updates) => {
+        set((state) => ({
+          export: { ...state.export, ...updates },
           isDraft: true,
         }))
       },
@@ -240,10 +354,12 @@ export const useMapCreationStore = create<MapCreationState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         // Only persist the workflow data, not UI state
+        selectedTemplate: state.selectedTemplate,
         locations: state.locations,
         chapters: state.chapters,
         style: state.style,
         preview: state.preview,
+        export: state.export,
         currentStep: state.currentStep,
         isDraft: state.isDraft,
         lastSaved: state.lastSaved,

@@ -1,30 +1,38 @@
 "use client"
 
-import { useEffect } from "react"
-import { useMapCreationStore } from "@/stores/map-creation"
-import ChapterBuilder from "@/components/chapter-builder"
+import { useMapCreationStore } from '@/stores/map-creation'
+import { ChapterBuilder } from '@/components/map-creation/chapter-builder'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function ChaptersPage() {
-  const { setCurrentStep } = useMapCreationStore()
-  
+  const router = useRouter()
+  const { locations, canProceedToStep, setCurrentStep } = useMapCreationStore()
+
   useEffect(() => {
+    // Set current step and validate
     setCurrentStep(2)
-  }, [setCurrentStep])
+    if (!canProceedToStep(2)) {
+      router.push('/create')
+    }
+  }, [canProceedToStep, router, setCurrentStep])
+
+  const handleBack = () => {
+    router.push('/create')
+  }
+
+  const handleNext = () => {
+    router.push('/create/customize')
+  }
+
+  if (locations.length === 0) {
+    return null // Loading or redirect
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-light tracking-tight mb-4">
-            What other ports made your Great Loop special?
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Add more locations and create chapters for each meaningful port or stop on your Great Loop adventure.
-          </p>
-        </div>
-        
-        <ChapterBuilder />
-      </div>
-    </div>
+    <ChapterBuilder 
+      onBack={handleBack}
+      onNext={handleNext}
+    />
   )
 } 

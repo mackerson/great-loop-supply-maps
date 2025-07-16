@@ -10,26 +10,48 @@ import { useRouter } from "next/navigation"
 import { useMapCreationStore } from "@/stores/map-creation"
 import { geocodeLocation, type GeocodeResult } from "@/lib/mapbox"
 
-const narrativePrompts = [
-  "Your home port",
-  "Where you started your Great Loop",
-  "Your favorite anchorage",
-  "The port that surprised you most",
-  "Where you met fellow Loopers",
-  "The place you'll never forget",
-]
-
 export default function LocationInput() {
   const router = useRouter()
-  const { locations, addLocation, canProceedToStep } = useMapCreationStore()
+  const { 
+    selectedTemplate, 
+    locations, 
+    addLocation, 
+    canProceedToStep, 
+    getPromptPlaceholderForStep, 
+    getPromptHelpTextForStep,
+    getTerminology,
+    getTerminologyPlural
+  } = useMapCreationStore()
   
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedLocation, setSelectedLocation] = useState<GeocodeResult | null>(null)
   const [showResults, setShowResults] = useState(false)
   const [narrative, setNarrative] = useState("")
-  const [currentPrompt, setCurrentPrompt] = useState(narrativePrompts[0])
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [searchResults, setSearchResults] = useState<GeocodeResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  
+  // Generate template-specific prompts
+  const getNarrativePrompts = () => {
+    if (!selectedTemplate) return ['Enter a location']
+    
+    const locationTerm = getTerminology('location')
+    const stopTerm = getTerminology('stop')
+    const journeyTerm = getTerminology('journey')
+    const communityTerm = getTerminology('community')
+    
+    return [
+      `Your home ${locationTerm}`,
+      `Where you started your ${journeyTerm}`,
+      `Your favorite ${stopTerm}`,
+      `The ${locationTerm} that surprised you most`,
+      `Where you met ${communityTerm}`,
+      `The place you'll never forget`,
+    ]
+  }
+  
+  const narrativePrompts = getNarrativePrompts()
+  const currentPrompt = narrativePrompts[currentPromptIndex]
 
   // Search for locations using Mapbox geocoding
   useEffect(() => {
@@ -83,6 +105,8 @@ export default function LocationInput() {
         name: selectedLocation.full_name,
         address: selectedLocation.full_name,
         coordinates: [selectedLocation.lng, selectedLocation.lat],
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
         description: narrative,
       })
 
@@ -92,14 +116,15 @@ export default function LocationInput() {
       setNarrative("")
 
       // Cycle to next prompt
-      const currentIndex = narrativePrompts.indexOf(currentPrompt)
-      const nextIndex = (currentIndex + 1) % narrativePrompts.length
-      setCurrentPrompt(narrativePrompts[nextIndex])
+      const nextIndex = (currentPromptIndex + 1) % narrativePrompts.length
+      setCurrentPromptIndex(nextIndex)
     }
   }
 
   const proceedToNextStep = () => {
-    router.push('/create/chapters')
+    if (selectedTemplate) {
+      router.push(`/create/${selectedTemplate.category}/${selectedTemplate.id}/chapters`)
+    }
   }
 
   return (
@@ -125,7 +150,7 @@ export default function LocationInput() {
             <Input
               id="location-prompt"
               type="text"
-              placeholder="Search for a place..."
+              placeholder={getPromptPlaceholderForStep(1) || "Search for a place..."}
               value={searchTerm}
               onChange={handleSearch}
               className="pl-10"
@@ -160,11 +185,11 @@ export default function LocationInput() {
 
         <div className="space-y-2">
           <Label htmlFor="narrative" className="text-lg font-normal">
-            What makes this port special?
+            What makes this {getTerminology('location')} special?
           </Label>
           <textarea
             id="narrative"
-            placeholder="Share your Great Loop story about this port..."
+            placeholder={`Share your ${getTerminology('journey')} story about this ${getTerminology('location')}...`}
             value={narrative}
             onChange={(e) => setNarrative(e.target.value)}
             className="min-h-[100px] w-full p-3 border border-border rounded-md bg-background resize-none"
@@ -177,7 +202,7 @@ export default function LocationInput() {
             disabled={!selectedLocation || !narrative}
             className="flex items-center gap-2"
           >
-            Add Port
+            Add {getTerminology('location')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -186,7 +211,7 @@ export default function LocationInput() {
       {/* Added Locations */}
       {locations.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">Your Great Loop Journey So Far</h3>
+          <h3 className="text-lg font-medium">Your {getTerminology('journey')} So Far</h3>
           <div className="space-y-3">
             {locations.map((location) => (
               <div
