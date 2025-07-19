@@ -31,7 +31,7 @@ export interface Chapter {
 }
 
 export interface StyleOptions {
-  theme: 'minimalist' | 'woodburn' | 'vintage' | 'inverted'
+  theme: 'minimalist' | 'woodburn' | 'vintage' | 'inverted' | 'nautical' | 'wilderness' | 'topographic'
   font: string
   fontSize: number
   strokeWidth: number
@@ -62,6 +62,9 @@ export interface ExportOptions {
 export interface MapCreationState {
   // Template selection
   selectedTemplate: Template | null
+  
+  // Hydration state
+  hasHydrated: boolean
   
   // Current step (1-5)
   currentStep: number
@@ -135,6 +138,7 @@ export interface MapCreationState {
 
 const initialState = {
   selectedTemplate: null,
+  hasHydrated: false,
   currentStep: 1,
   locations: [],
   chapters: [],
@@ -364,6 +368,11 @@ export const useMapCreationStore = create<MapCreationState>()(
         isDraft: state.isDraft,
         lastSaved: state.lastSaved,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.hasHydrated = true
+        }
+      },
     }
   )
 ) 

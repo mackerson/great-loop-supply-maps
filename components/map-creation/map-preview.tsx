@@ -108,33 +108,53 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
 
     // Get all layer IDs to see what's available
     const style = map.getStyle()
-    const layers = style.layers || []
+    if (!style || !style.layers) return
+    
+    const layers = style.layers
     
     // Look for and modify water layers
     layers.forEach(layer => {
-      if (layer.id.includes('water') && map.getLayer(layer.id)) {
+      if (!layer || !layer.id) return
+      
+      const mapLayer = map.getLayer(layer.id)
+      if (!mapLayer) return
+      
+      if (layer.id.includes('water')) {
         try {
-          map.setPaintProperty(layer.id, 'fill-color', colors.water)
+          // Only set fill-color for fill layers
+          if (mapLayer.type === 'fill') {
+            map.setPaintProperty(layer.id, 'fill-color', colors.water)
+          }
+          // Set line-color for line layers
+          if (mapLayer.type === 'line') {
+            map.setPaintProperty(layer.id, 'line-color', colors.water)
+          }
         } catch (e) {
-          console.log(`Could not modify water layer ${layer.id}:`, e)
+          // Silently fail - some layers might not support these properties
         }
       }
       
       // Look for and modify road layers
-      if ((layer.id.includes('road') || layer.id.includes('street') || layer.id.includes('highway')) && map.getLayer(layer.id)) {
+      if (layer.id.includes('road') || layer.id.includes('street') || layer.id.includes('highway')) {
         try {
-          map.setPaintProperty(layer.id, 'line-color', colors.roads)
+          // Only set line-color for line layers
+          if (mapLayer.type === 'line') {
+            map.setPaintProperty(layer.id, 'line-color', colors.roads)
+          }
         } catch (e) {
-          console.log(`Could not modify road layer ${layer.id}:`, e)
+          // Silently fail - some layers might not support these properties
         }
       }
       
       // Look for and modify text layers
-      if ((layer.id.includes('place') || layer.id.includes('label') || layer.id.includes('text')) && map.getLayer(layer.id)) {
+      if (layer.id.includes('place') || layer.id.includes('label') || layer.id.includes('text')) {
         try {
-          map.setPaintProperty(layer.id, 'text-color', colors.text)
+          // Only set text-color for symbol layers
+          if (mapLayer.type === 'symbol') {
+            map.setPaintProperty(layer.id, 'text-color', colors.text)
+          }
         } catch (e) {
-          console.log(`Could not modify text layer ${layer.id}:`, e)
+          // Silently fail - some layers might not support these properties
         }
       }
     })
@@ -184,14 +204,45 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
         transition: transform 0.2s ease;
       `
 
+      // Helper function to get icon symbol for map markers
+      const getIconSymbol = (iconName: string): string => {
+        const iconMap: Record<string, string> = {
+          'Heart': '❤️',
+          'Star': '⭐',
+          'Home': '🏠',
+          'Coffee': '☕',
+          'Map': '🗺️',
+          'Music': '🎵',
+          'Camera': '📷',
+          'Smile': '😊',
+          'Frown': '😢',
+          'Compass': '🧭',
+          'Anchor': '⚓'
+        }
+        return iconMap[iconName] || '📍'
+      }
+
       // Add icon or emoji to marker
       if (location.iconType === 'emoji' && location.emoji) {
         markerElement.textContent = location.emoji
         markerElement.style.fontSize = '16px'
         markerElement.style.backgroundColor = 'transparent'
         markerElement.style.border = 'none'
-      } else if (location.iconType === 'icon') {
-        markerElement.textContent = (index + 1).toString()
+        markerElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
+      } else if (location.iconType === 'image' && location.customImage) {
+        markerElement.innerHTML = ''
+        markerElement.style.backgroundImage = `url(${location.customImage})`
+        markerElement.style.backgroundSize = 'cover'
+        markerElement.style.backgroundPosition = 'center'
+        markerElement.style.backgroundColor = 'transparent'
+      } else if (location.iconType === 'icon' && location.icon) {
+        // Convert icon name to emoji symbol for map display
+        const iconSymbol = getIconSymbol(location.icon)
+        markerElement.textContent = iconSymbol
+        markerElement.style.fontSize = '16px'
+        markerElement.style.backgroundColor = 'transparent'
+        markerElement.style.border = 'none'
+        markerElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
       } else {
         markerElement.textContent = (index + 1).toString()
       }

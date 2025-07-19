@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,7 +25,7 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useMapCreationStore } from '@/stores/map-creation'
+import { useMapCreationStore, type Location } from '@/stores/map-creation'
 
 // Fallback icons for locations
 const fallbackIcons = [
@@ -52,10 +53,14 @@ interface ChapterBuilderProps {
 export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
   const { 
     locations, 
+    chapters,
     activeLocationIndex, 
     setActiveLocationIndex, 
     updateLocation, 
     removeLocation,
+    addChapter,
+    updateChapter,
+    removeChapter,
     nextStep,
     selectedTemplate,
     getTemplateIconSets,
@@ -77,6 +82,38 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
     templateIconSets.flatMap(set => set.icons.map(icon => icon.symbol)).filter(symbol => symbol && symbol.length <= 2) :
     fallbackEmojis
 
+  // Helper function to ensure a chapter exists for a location
+  const ensureChapterExists = (location: Location) => {
+    const existingChapter = chapters.find(ch => ch.locationId === location.id)
+    if (!existingChapter) {
+      addChapter({
+        locationId: location.id,
+        title: location.name,
+        description: location.description || location.narrative,
+        icon: location.icon || 'Heart',
+        emoji: location.emoji,
+        customImage: location.customImage || undefined
+      })
+    }
+  }
+
+  // Automatically create chapters for locations that don't have them
+  useEffect(() => {
+    locations.forEach(location => {
+      const existingChapter = chapters.find(ch => ch.locationId === location.id)
+      if (!existingChapter) {
+        addChapter({
+          locationId: location.id,
+          title: location.name,
+          description: location.description || location.narrative,
+          icon: location.icon || 'Heart',
+          emoji: location.emoji,
+          customImage: location.customImage || undefined
+        })
+      }
+    })
+  }, [locations, chapters]) // Removed addChapter from dependencies since Zustand functions are stable
+
   const updateLocationIcon = (index: number, iconName: string) => {
     const location = locations[index]
     if (location) {
@@ -84,6 +121,13 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
         iconType: "icon",
         icon: iconName,
       })
+      
+      // Ensure chapter exists and update it
+      ensureChapterExists(location)
+      const chapter = chapters.find(ch => ch.locationId === location.id)
+      if (chapter) {
+        updateChapter(chapter.id, { icon: iconName })
+      }
     }
   }
 
@@ -94,6 +138,13 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
         iconType: "emoji",
         emoji,
       })
+      
+      // Ensure chapter exists and update it
+      ensureChapterExists(location)
+      const chapter = chapters.find(ch => ch.locationId === location.id)
+      if (chapter) {
+        updateChapter(chapter.id, { emoji })
+      }
     }
   }
 
@@ -101,6 +152,16 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
     const location = locations[index]
     if (location) {
       updateLocation(location.id, { caption })
+      
+      // Ensure chapter exists and update it
+      ensureChapterExists(location)
+      const chapter = chapters.find(ch => ch.locationId === location.id)
+      if (chapter) {
+        updateChapter(chapter.id, { 
+          title: caption || location.name,
+          description: location.description || location.narrative 
+        })
+      }
     }
   }
 
@@ -112,10 +173,18 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
     reader.onload = () => {
       const location = locations[index]
       if (location) {
+        const customImageData = reader.result as string
         updateLocation(location.id, {
           iconType: "image",
-          customImage: reader.result as string,
+          customImage: customImageData,
         })
+        
+        // Ensure chapter exists and update it
+        ensureChapterExists(location)
+        const chapter = chapters.find(ch => ch.locationId === location.id)
+        if (chapter) {
+          updateChapter(chapter.id, { customImage: customImageData })
+        }
       }
     }
     reader.readAsDataURL(file)
@@ -124,6 +193,12 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
   const handleRemoveLocation = (index: number) => {
     const location = locations[index]
     if (location) {
+      // Remove corresponding chapter if it exists
+      const chapter = chapters.find(ch => ch.locationId === location.id)
+      if (chapter) {
+        removeChapter(chapter.id)
+      }
+      
       removeLocation(location.id)
       if (activeLocationIndex >= locations.length - 1) {
         setActiveLocationIndex(Math.max(0, locations.length - 2))
