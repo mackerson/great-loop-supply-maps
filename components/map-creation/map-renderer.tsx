@@ -46,9 +46,37 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
       
       return new Promise((resolve, reject) => {
         try {
-          const canvas = map.getCanvas()
-          const dataURL = canvas.toDataURL('image/png', 1.0)
-          resolve(dataURL)
+          // Wait for map to be fully loaded and idle
+          const waitForMapReady = () => {
+            if (map.loaded() && map.isStyleLoaded()) {
+              // Add a small delay to ensure rendering is complete
+              setTimeout(() => {
+                try {
+                  const canvas = map.getCanvas()
+                  console.log('Canvas dimensions:', canvas.width, 'x', canvas.height)
+                  
+                  // Force a repaint before export
+                  map.triggerRepaint()
+                  
+                  // Wait a bit more after repaint
+                  setTimeout(() => {
+                    const dataURL = canvas.toDataURL('image/png', 1.0)
+                    console.log('DataURL length:', dataURL.length)
+                    console.log('DataURL preview:', dataURL.substring(0, 100))
+                    resolve(dataURL)
+                  }, 200)
+                } catch (error) {
+                  console.error('Canvas export error:', error)
+                  reject(error)
+                }
+              }, 500) // Give it 500ms to finish rendering
+            } else {
+              // Check again in 100ms
+              setTimeout(waitForMapReady, 100)
+            }
+          }
+          
+          waitForMapReady()
         } catch (error) {
           reject(error)
         }
@@ -208,7 +236,8 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
       style: 'mapbox://styles/mapbox/light-v11',
       center: locations.length > 0 ? [locations[0].lng, locations[0].lat] : [0, 0],
       zoom: 1,
-      attributionControl: showControls // Only show attribution if controls are enabled
+      attributionControl: showControls, // Only show attribution if controls are enabled
+      preserveDrawingBuffer: true // Essential for image export - preserves WebGL canvas data
     })
 
     // Add navigation controls if requested
