@@ -18,6 +18,7 @@ interface MapRendererProps {
 export interface MapRendererRef {
   getMap: () => mapboxgl.Map | null
   exportImage: () => Promise<string>
+  resize: () => void
 }
 
 export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({ 
@@ -52,6 +53,18 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
           reject(error)
         }
       })
+    },
+    resize: () => {
+      if (map) {
+        // Trigger map resize after a short delay to ensure container has updated
+        setTimeout(() => {
+          map.resize()
+          // Force a second resize to ensure proper fit
+          setTimeout(() => {
+            map.resize()
+          }, 50)
+        }, 100)
+      }
     }
   }))
 
@@ -390,10 +403,10 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
   }, [locations, mapStyle.theme, themeColors.markers, setActiveLocationIndex, selectedTemplate, showControls, onMapLoad])
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       <div
         ref={mapContainerRef}
-        className={`rounded-lg border border-border overflow-hidden ${mapStyle.font} ${className}`}
+        className={`w-full h-full rounded-lg border border-border overflow-hidden ${mapStyle.font} ${className}`}
         style={{ minHeight: '400px', ...style }}
       />
       {!MAPBOX_ACCESS_TOKEN && (

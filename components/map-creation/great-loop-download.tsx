@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -89,6 +89,13 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
   const [showPhysicalOptions, setShowPhysicalOptions] = useState(false)
 
   const mapRendererRef = useRef<MapRendererRef>(null)
+
+  // Trigger map resize when preset selection changes
+  useEffect(() => {
+    if (mapRendererRef.current) {
+      mapRendererRef.current.resize()
+    }
+  }, [selectedPreset])
 
   const handleDownload = async () => {
     setIsDownloading(true)
@@ -278,13 +285,16 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
                   <div 
                     className={`${
                       selectedPresetData?.orientation === 'landscape' ? 'aspect-video' : 'aspect-[3/4]'
-                    } rounded-lg border border-border overflow-hidden`}
+                    } rounded-lg border border-border overflow-hidden relative`}
                   >
-                    <MapRenderer 
-                      ref={mapRendererRef}
-                      className="w-full h-full"
-                      showControls={false}
-                    />
+                    <div className="absolute inset-0">
+                      <MapRenderer 
+                        ref={mapRendererRef}
+                        className=""
+                        style={{ width: '100%', height: '100%' }}
+                        showControls={false}
+                      />
+                    </div>
                   </div>
 
                   <div className="mt-4 text-center text-sm text-muted-foreground">
