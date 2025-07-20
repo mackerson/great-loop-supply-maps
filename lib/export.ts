@@ -1,6 +1,8 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { Location } from './types'
+import type { Template } from './templates'
+import { getGreatLoopGeography, generateGeographicFeatures } from './geographic-features'
 
 export interface ExportOptions {
   format: 'png' | 'svg' | 'pdf' | 'dxf'
@@ -10,6 +12,7 @@ export interface ExportOptions {
   theme: string
   strokeWidth: number
   font: string
+  template?: Template
 }
 
 // Export map as PNG using html2canvas
@@ -59,6 +62,19 @@ export function exportToSVG(
   // Calculate bounds for all locations
   const bounds = calculateBounds(locations)
   
+  // Get template route if available
+  const routePath = options.template?.config.routeData?.path
+  const templateBounds = options.template?.config.routeData?.bounds
+  const routeColor = options.template?.config.styling.primaryColor || themeColors.markers
+  
+  // Use template bounds if available, otherwise calculate from locations
+  const mapBounds = templateBounds ? {
+    minLat: templateBounds.south,
+    maxLat: templateBounds.north,
+    minLng: templateBounds.west,
+    maxLng: templateBounds.east
+  } : bounds
+
   // SVG template
   const svg = `
     <svg 
@@ -80,26 +96,52 @@ export function exportToSVG(
             stroke-width: ${strokeWidth}px; 
             fill: ${themeColors.markers}; 
           }
+          .route {
+            stroke: ${routeColor};
+            stroke-width: ${strokeWidth * 2}px;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+          }
+          .route-glow {
+            stroke: ${routeColor};
+            stroke-width: ${strokeWidth * 4}px;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.3;
+            filter: blur(${strokeWidth}px);
+          }
         </style>
       </defs>
       
       <!-- Background -->
       <rect width="100%" height="100%" fill="${themeColors.background}"/>
       
-      <!-- Grid lines for minimal map aesthetic -->
-      ${generateGridLines(pixelWidth, pixelHeight, themeColors.lines, strokeWidth)}
+      <!-- Geographic features (coastlines, lakes, rivers) -->
+      ${options.template?.id === 'great-loop' ? 
+        generateGeographicFeatures(getGreatLoopGeography(), mapBounds, pixelWidth, pixelHeight, theme) : ''}
+      
+      <!-- Template route path (if available) -->
+      ${routePath ? generateRoutePath(routePath, mapBounds, pixelWidth, pixelHeight) : ''}
+      
+      <!-- Grid lines for minimal map aesthetic (only if no route) -->
+      ${!routePath ? generateGridLines(pixelWidth, pixelHeight, themeColors.lines, strokeWidth) : ''}
       
       <!-- Location markers -->
       ${locations.map((location, index) => {
-        const coords = projectLocationToSVG(location, bounds, pixelWidth, pixelHeight)
+        const coords = projectLocationToSVG(location, mapBounds, pixelWidth, pixelHeight)
         return generateLocationMarker(location, coords, index, options)
       }).join('')}
       
       <!-- Location labels -->
       ${locations.map((location, index) => {
-        const coords = projectLocationToSVG(location, bounds, pixelWidth, pixelHeight)
+        const coords = projectLocationToSVG(location, mapBounds, pixelWidth, pixelHeight)
         return generateLocationLabel(location, coords, index, options)
       }).join('')}
+      
+      <!-- Template title -->
+      ${options.template ? generateTemplateTitle(options.template, locations, pixelWidth, themeColors) : ''}
     </svg>
   `.trim()
 
@@ -678,6 +720,45 @@ function generateLocationLabel(
       ${location.caption}
     </text>
     ` : ''}
+  `
+}
+
+function generateRoutePath(
+  routePath: [number, number][],
+  bounds: ReturnType<typeof calculateBounds>,
+  width: number,
+  height: number
+): string {
+  const pathCoords = routePath.map(coord => {
+    const x = ((coord[0] - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * width
+    const y = height - ((coord[1] - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * height
+    return `${x},${y}`
+  }).join(' ')
+  
+  return `
+    <!-- Route glow effect -->
+    <polyline points="${pathCoords}" class="route-glow"/>
+    <!-- Main route line -->
+    <polyline points="${pathCoords}" class="route"/>
+  `
+}
+
+function generateTemplateTitle(
+  template: Template,
+  locations: Location[],
+  width: number,
+  themeColors: ReturnType<typeof getThemeColors>
+): string {
+  const titleY = 60
+  const subtitleY = 80
+  
+  return `
+    <text x="${width / 2}" y="${titleY}" text-anchor="middle" font-family="${getFontFamily('font-serif')}" font-size="24" fill="${themeColors.text}">
+      My ${template.name} Adventure
+    </text>
+    <text x="${width / 2}" y="${subtitleY}" text-anchor="middle" font-family="${getFontFamily('font-sans')}" font-size="14" fill="${themeColors.text}" opacity="0.8">
+      ${locations.length} locations • ${new Date().getFullYear()}
+    </text>
   `
 }
 

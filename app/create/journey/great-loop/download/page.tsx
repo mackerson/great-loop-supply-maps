@@ -1,7 +1,7 @@
 "use client"
 
 import { useMapCreationStore } from '@/stores/map-creation'
-import { ExportInterface } from '@/components/map-creation/export-interface'
+import { GreatLoopDownload } from '@/components/map-creation/great-loop-download'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
@@ -32,7 +32,7 @@ export default function GreatLoopDownloadPage() {
   }
 
   return (
-    <ExportInterface 
+    <GreatLoopDownload 
       onBack={handleBack}
     />
   )
