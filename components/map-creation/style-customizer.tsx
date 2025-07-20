@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ArrowLeft } from "lucide-react"
 import { useMapCreationStore } from '@/stores/map-creation'
+import { MapRenderer } from './map-renderer'
+import { Card, CardContent } from "@/components/ui/card"
 
 interface StyleCustomizerProps {
   onBack?: () => void
@@ -298,130 +300,28 @@ export function StyleCustomizer({ onBack, onNext }: StyleCustomizerProps) {
             </div>
           </div>
 
-          {/* Preview */}
+          {/* Live Map Preview */}
           <div className="space-y-4">
-            <h2 className="text-xl font-light">Preview</h2>
-            <div className="bg-card aspect-square rounded-lg border border-border overflow-hidden">
-              <div className={`w-full h-full p-4 ${style.font}`}>
-                <div className="relative w-full h-full">
-                  {/* Template-specific map preview */}
-                  <div className={`w-full h-full rounded-lg ${previewColors.background}`}>
-                    {/* Map lines */}
-                    <svg
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 100 100"
-                      preserveAspectRatio="none"
-                      className={previewColors.lines}
-                    >
-                      {/* Template-specific path patterns */}
-                      {selectedTemplate?.community === 'boating' ? (
-                        <>
-                          {/* Waterway-like paths */}
-                          <path
-                            d="M 10 30 C 30 25, 70 35, 90 30"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={style.strokeWidth * 0.2}
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d="M 15 50 C 40 45, 60 55, 85 50"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={style.strokeWidth * 0.2}
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d="M 20 70 C 35 65, 65 75, 80 70"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={style.strokeWidth * 0.2}
-                            strokeLinecap="round"
-                          />
-                        </>
-                      ) : selectedTemplate?.community === 'hiking' ? (
-                        <>
-                          {/* Trail-like zigzag paths */}
-                          <path
-                            d="M 20 20 L 30 35 L 45 25 L 60 40 L 75 30 L 80 45"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={style.strokeWidth * 0.2}
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d="M 25 55 L 40 45 L 50 60 L 65 50 L 75 65"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={style.strokeWidth * 0.2}
-                            strokeLinecap="round"
-                          />
-                        </>
-                      ) : (
-                        <>
-                          {/* Default grid pattern */}
-                          {[20, 40, 60, 80].map((y) => (
-                            <path
-                              key={`h-${y}`}
-                              d={`M 10 ${y} C 30 ${y + 5}, 70 ${y - 5}, 90 ${y}`}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={style.strokeWidth * 0.2}
-                              strokeLinecap="round"
-                            />
-                          ))}
-                          {[30, 50, 70].map((x) => (
-                            <path
-                              key={`v-${x}`}
-                              d={`M ${x} 10 C ${x - 5} 30, ${x + 5} 70, ${x} 90`}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={style.strokeWidth * 0.2}
-                              strokeLinecap="round"
-                            />
-                          ))}
-                        </>
-                      )}
-
-                      {/* Sample location markers */}
-                      {[
-                        { x: 30, y: 30 },
-                        { x: 70, y: 40 },
-                        { x: 50, y: 70 },
-                      ].map((pos, i) => (
-                        <circle
-                          key={i}
-                          cx={pos.x}
-                          cy={pos.y}
-                          r={style.strokeWidth * 0.8}
-                          fill={previewColors.markers}
-                        />
-                      ))}
-                    </svg>
-
-                    {/* Template-specific labels */}
-                    <div className="absolute top-1/4 left-1/4 transform -translate-x-1/2 -translate-y-1/2">
-                      <div className={`text-xs ${previewColors.text}`}>
-                        {previewLabels[0]}
-                      </div>
-                    </div>
-
-                    <div className="absolute top-2/5 right-1/4 transform translate-x-1/2 -translate-y-1/2">
-                      <div className={`text-xs ${previewColors.text}`}>
-                        {previewLabels[1]}
-                      </div>
-                    </div>
-
-                    <div className="absolute top-2/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                      <div className={`text-xs ${previewColors.text}`}>
-                        {previewLabels[2]}
-                      </div>
-                    </div>
-                  </div>
+            <h2 className="text-xl font-light">Live Preview</h2>
+            <Card>
+              <CardContent className="p-4">
+                <div className="aspect-square">
+                  <MapRenderer 
+                    className="w-full h-full"
+                    style={{ minHeight: '400px' }}
+                    showControls={false}
+                  />
                 </div>
-              </div>
-            </div>
+                
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  Live preview with your actual {getTerminology('location')}s
+                  <br />
+                  <span className="text-xs text-blue-600">
+                    Theme changes apply immediately
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
             
             {/* Template styling info */}
             {templateStyling && (

@@ -9,7 +9,7 @@ import { motion } from "framer-motion"
 import { Download, ArrowLeft, Check, Smartphone, Monitor, Printer, Anchor, Heart, Star, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useMapCreationStore } from '@/stores/map-creation'
-import { MapPreview } from './map-preview'
+import { MapRenderer, type MapRendererRef } from './map-renderer'
 import html2canvas from 'html2canvas'
 
 interface GreatLoopDownloadProps {
@@ -88,7 +88,7 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
   const [isDownloaded, setIsDownloaded] = useState(false)
   const [showPhysicalOptions, setShowPhysicalOptions] = useState(false)
 
-  const mapPreviewRef = useRef<HTMLDivElement>(null)
+  const mapRendererRef = useRef<MapRendererRef>(null)
 
   const handleDownload = async () => {
     setIsDownloading(true)
@@ -97,74 +97,29 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
       const preset = downloadPresets.find(p => p.id === selectedPreset)
       if (!preset) return
 
-      // Find the map container within the MapPreview component
-      const mapContainer = mapPreviewRef.current?.querySelector('[class*="mapContainer"]') as HTMLElement
-      if (!mapContainer) {
-        // Fallback to the entire preview container
-        const previewContainer = mapPreviewRef.current
-        if (!previewContainer) {
-          throw new Error('Map container not found')
-        }
-        
-        // Capture the preview container
-        const canvas = await html2canvas(previewContainer, {
-          backgroundColor: '#ffffff',
-          scale: 2, // Higher quality
-          useCORS: true,
-          allowTaint: true,
-          ignoreElements: (element) => {
-            // Skip UI controls and buttons
-            return element.tagName === 'BUTTON' || 
-                   element.classList.contains('mapboxgl-control-container') ||
-                   element.classList.contains('mapboxgl-popup')
-          }
-        })
-
-        // Generate download
-        const timestamp = new Date().toISOString().slice(0, 10)
-        const filename = `great-loop-map-${timestamp}.png`
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = filename
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            URL.revokeObjectURL(url)
-          }
-        }, 'image/png', 1.0)
-        
-        setIsDownloaded(true)
-        setTimeout(() => setIsDownloaded(false), 3000)
-        return
+      // Use the MapRenderer's built-in export functionality
+      if (!mapRendererRef.current) {
+        throw new Error('Map not ready for export')
       }
 
-      // If we found the specific map container, use that
-      const canvas = await html2canvas(mapContainer, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true
-      })
-
+      const dataURL = await mapRendererRef.current.exportImage()
+      
+      // Generate download
       const timestamp = new Date().toISOString().slice(0, 10)
       const filename = `great-loop-map-${timestamp}.png`
 
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = filename
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(url)
-        }
-      }, 'image/png', 1.0)
+      // Convert data URL to blob and download
+      const response = await fetch(dataURL)
+      const blob = await response.blob()
+      
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
       
       setIsDownloaded(true)
       setTimeout(() => setIsDownloaded(false), 3000)
@@ -321,15 +276,15 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
               <Card>
                 <CardContent className="p-6">
                   <div 
-                    ref={mapPreviewRef}
                     className={`${
                       selectedPresetData?.orientation === 'landscape' ? 'aspect-video' : 'aspect-[3/4]'
-                    } rounded-lg border border-border overflow-hidden relative`}
+                    } rounded-lg border border-border overflow-hidden`}
                   >
-                    {/* Use the actual working MapPreview component */}
-                    <div className="absolute inset-0" style={{ transform: 'scale(0.8)', transformOrigin: 'center' }}>
-                      <MapPreview />
-                    </div>
+                    <MapRenderer 
+                      ref={mapRendererRef}
+                      className="w-full h-full"
+                      showControls={false}
+                    />
                   </div>
 
                   <div className="mt-4 text-center text-sm text-muted-foreground">
