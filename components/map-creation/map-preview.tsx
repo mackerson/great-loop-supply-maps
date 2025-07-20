@@ -22,7 +22,8 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
     style, 
     activeLocationIndex, 
     setActiveLocationIndex,
-    nextStep
+    nextStep,
+    selectedTemplate
   } = useMapCreationStore()
   
   const [map, setMap] = useState<mapboxgl.Map | null>(null)
@@ -180,6 +181,58 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
     // Apply theme-specific styling once the map loads
     mapInstance.on('style.load', () => {
       applyThemeStyles(mapInstance, style.theme)
+      
+      // Add route path if available in template
+      if (selectedTemplate?.config.routeData?.path) {
+        const routePath = selectedTemplate.config.routeData.path
+        
+        // Add route source
+        mapInstance.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: routePath
+            }
+          }
+        })
+        
+        // Add route layer with theme-appropriate styling
+        const routeColor = selectedTemplate.config.styling.primaryColor || '#1e40af'
+        mapInstance.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': routeColor,
+            'line-width': 3,
+            'line-opacity': 0.8
+          }
+        })
+        
+        // Add a subtle glow effect
+        mapInstance.addLayer({
+          id: 'route-glow',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': routeColor,
+            'line-width': 6,
+            'line-opacity': 0.3,
+            'line-blur': 2
+          }
+        }, 'route') // Insert below the main route line
+      }
     })
 
     // Add custom markers for each location
@@ -279,11 +332,21 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
       }
     })
 
-    // Fit map to show all locations
-    if (locations.length > 1) {
+    // Fit map to show appropriate view
+    if (selectedTemplate?.config.routeData?.bounds && locations.length > 0) {
+      // Use template bounds for templates with route data (like Great Loop)
+      const templateBounds = selectedTemplate.config.routeData.bounds
+      const bounds = new mapboxgl.LngLatBounds(
+        [templateBounds.west, templateBounds.south],
+        [templateBounds.east, templateBounds.north]
+      )
+      mapInstance.fitBounds(bounds, { padding: 40 })
+    } else if (locations.length > 1) {
+      // For multiple locations without template bounds, fit to all locations
       const bounds = getBounds(locations)
       mapInstance.fitBounds(bounds, { padding: 80 })
     } else if (locations.length === 1) {
+      // For single location without template bounds, center and zoom
       mapInstance.setCenter([locations[0].lng, locations[0].lat])
       mapInstance.setZoom(10)
     }
@@ -294,7 +357,7 @@ export function MapPreview({ onBack, onNext }: MapPreviewProps) {
     return () => {
       mapInstance.remove()
     }
-  }, [locations, style.theme, themeColors.markers, setActiveLocationIndex])
+  }, [locations, style.theme, themeColors.markers, setActiveLocationIndex, selectedTemplate])
 
   return (
     <motion.div

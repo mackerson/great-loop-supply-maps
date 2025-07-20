@@ -101,6 +101,87 @@ export const greatLoopTemplate: Template = {
       }
     ],
     routeData: {
+      // Simplified Great Loop path - major segments of the waterway system
+      path: [
+        // Starting from Chicago, going south via Illinois River
+        [-87.6298, 41.8781], // Chicago
+        [-87.7006, 41.7781], // Chicago River to Lake Michigan
+        [-87.9073, 41.5781], // Cal-Sag Channel
+        [-88.0814, 41.4075], // Illinois Waterway
+        [-88.2434, 41.3114], // Joliet
+        [-89.0937, 40.6931], // Peoria
+        [-89.6501, 39.7817], // Springfield area
+        [-90.1994, 38.8906], // St. Louis area
+        [-90.1848, 38.6270], // Mississippi River confluence
+        
+        // Down the Mississippi River
+        [-89.6787, 36.9014], // Cape Girardeau
+        [-89.9287, 35.1495], // Memphis
+        [-91.1871, 32.2988], // Vicksburg
+        [-91.4043, 30.4515], // Baton Rouge
+        [-90.0715, 29.9511], // New Orleans
+        
+        // Through Gulf Coast
+        [-89.4012, 30.3813], // Mississippi Sound
+        [-88.0399, 30.6954], // Mobile Bay
+        [-87.6169, 30.3835], // Pensacola
+        [-84.9877, 29.6516], // Apalachicola
+        [-84.1557, 30.4518], // Tallahassee area
+        [-82.5515, 27.7676], // Tampa Bay
+        [-81.8019, 26.5020], // Fort Myers
+        [-81.0784, 25.7617], // Key Largo
+        [-80.1918, 25.7617], // Miami
+        
+        // Up the Atlantic Coast (ICW)
+        [-80.0328, 26.7056], // Fort Lauderdale
+        [-80.0533, 27.0648], // West Palm Beach
+        [-80.2706, 27.9506], // Stuart
+        [-80.8426, 28.5383], // Space Coast
+        [-81.0212, 29.2108], // Daytona
+        [-81.3924, 29.9012], // St. Augustine
+        [-81.4639, 30.5013], // Jacksonville
+        [-80.9018, 31.9996], // Savannah
+        [-79.9311, 32.7765], // Charleston
+        [-78.9382, 33.6890], // Myrtle Beach
+        [-77.9447, 34.2257], // Wilmington
+        [-76.6413, 34.7199], // Outer Banks
+        [-76.2859, 36.8508], // Norfolk/Chesapeake Bay
+        
+        // Up Chesapeake Bay
+        [-76.4951, 38.9717], // Annapolis
+        [-76.6122, 39.2904], // Baltimore
+        [-75.5277, 39.7391], // Delaware Bay
+        [-74.7429, 40.2206], // Atlantic City area
+        [-74.0060, 40.7128], // New York Harbor
+        
+        // Up Hudson River
+        [-73.9282, 41.3456], // West Point
+        [-73.6854, 42.6864], // Albany
+        [-73.7562, 43.2994], // Champlain Canal (north)
+        
+        // Erie Canal system (west)
+        [-73.7562, 42.9864], // Troy
+        [-74.3754, 42.8142], // Schenectady
+        [-74.9254, 42.8142], // Amsterdam
+        [-75.3254, 42.8142], // Little Falls
+        [-76.1474, 43.0481], // Syracuse
+        [-77.6088, 43.1564], // Rochester
+        [-78.8784, 43.0962], // Buffalo/Niagara
+        
+        // Great Lakes - Lake Erie
+        [-79.0377, 42.8864], // Erie, PA
+        [-81.6943, 41.4993], // Cleveland
+        [-82.7326, 41.7370], // Toledo area
+        [-83.0302, 42.3314], // Detroit River
+        
+        // Great Lakes - connecting waterways
+        [-82.6282, 45.7640], // Sault Ste. Marie
+        [-84.3273, 46.5197], // Mackinac Straits
+        [-85.6681, 45.3311], // Traverse City area
+        [-86.4526, 44.2619], // Ludington
+        [-87.0073, 43.0389], // Milwaukee
+        [-87.6298, 41.8781]  // Back to Chicago
+      ],
       regions: [
         'Great Lakes',
         'Illinois River',
