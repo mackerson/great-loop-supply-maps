@@ -17,7 +17,7 @@ interface MapRendererProps {
 
 export interface MapRendererRef {
   getMap: () => mapboxgl.Map | null
-  exportImage: () => Promise<string>
+  exportImage: (width?: number, height?: number) => Promise<string>
   resize: () => void
 }
 
@@ -41,11 +41,29 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
   // Expose map instance and export function through ref
   useImperativeHandle(ref, () => ({
     getMap: () => map,
-    exportImage: async () => {
+    exportImage: async (targetWidth?: number, targetHeight?: number) => {
       if (!map) throw new Error('Map not initialized')
       
       return new Promise((resolve, reject) => {
         try {
+          const container = mapContainerRef.current
+          if (!container) {
+            reject(new Error('Map container not found'))
+            return
+          }
+
+          // Store original dimensions
+          const originalWidth = container.style.width
+          const originalHeight = container.style.height
+          
+          // Set target dimensions if provided
+          if (targetWidth && targetHeight) {
+            console.log(`Exporting at ${targetWidth}x${targetHeight}`)
+            container.style.width = `${targetWidth}px`
+            container.style.height = `${targetHeight}px`
+            map.resize()
+          }
+
           // Wait for map to be fully loaded and idle
           const waitForMapReady = () => {
             if (map.loaded() && map.isStyleLoaded()) {
@@ -62,14 +80,29 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
                   setTimeout(() => {
                     const dataURL = canvas.toDataURL('image/png', 1.0)
                     console.log('DataURL length:', dataURL.length)
-                    console.log('DataURL preview:', dataURL.substring(0, 100))
+                    
+                    // Restore original dimensions
+                    if (targetWidth && targetHeight) {
+                      container.style.width = originalWidth
+                      container.style.height = originalHeight
+                      map.resize()
+                    }
+                    
                     resolve(dataURL)
-                  }, 200)
+                  }, 300)
                 } catch (error) {
                   console.error('Canvas export error:', error)
+                  
+                  // Restore original dimensions on error
+                  if (targetWidth && targetHeight) {
+                    container.style.width = originalWidth
+                    container.style.height = originalHeight
+                    map.resize()
+                  }
+                  
                   reject(error)
                 }
-              }, 500) // Give it 500ms to finish rendering
+              }, 800) // Longer delay for high-res rendering
             } else {
               // Check again in 100ms
               setTimeout(waitForMapReady, 100)

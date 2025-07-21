@@ -97,6 +97,20 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
     }
   }, [selectedPreset])
 
+  // Helper function to parse dimensions from preset size string
+  const getParsedDimensions = (sizeString: string, orientation: string) => {
+    if (sizeString === "8x10") {
+      // For print, use 300 DPI: 8"×10" = 2400×3000 pixels
+      return orientation === "portrait" ? { width: 2400, height: 3000 } : { width: 3000, height: 2400 }
+    }
+    
+    const [widthStr, heightStr] = sizeString.split('x')
+    const width = parseInt(widthStr)
+    const height = parseInt(heightStr)
+    
+    return { width, height }
+  }
+
   const handleDownload = async () => {
     setIsDownloading(true)
     
@@ -109,11 +123,15 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
         throw new Error('Map not ready for export')
       }
 
-      const dataURL = await mapRendererRef.current.exportImage()
+      // Get target dimensions for high-resolution export
+      const { width, height } = getParsedDimensions(preset.size, preset.orientation)
+      console.log(`Downloading ${preset.name} at ${width}x${height}`)
+
+      const dataURL = await mapRendererRef.current.exportImage(width, height)
       
       // Generate download
       const timestamp = new Date().toISOString().slice(0, 10)
-      const filename = `great-loop-map-${timestamp}.png`
+      const filename = `great-loop-map-${preset.name.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.png`
 
       // Convert data URL to blob and download
       const response = await fetch(dataURL)
