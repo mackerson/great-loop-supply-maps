@@ -11,6 +11,9 @@ import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import OrderConfirmation from "@/components/order-confirmation"
+import { useMapCreationStore } from '@/stores/map-creation'
+import { createOrderFromMapState, saveOrderLocally } from '@/lib/order-processing'
+import { CustomerInfo, OrderData } from '@/lib/types'
 
 interface PaymentProcessorProps {
   material:
@@ -29,6 +32,7 @@ interface PaymentProcessorProps {
 }
 
 export default function PaymentProcessor({ material, size, orientation, theme, onBack }: PaymentProcessorProps) {
+  const mapCreationState = useMapCreationStore()
   const [cardNumber, setCardNumber] = useState("")
   const [cardName, setCardName] = useState("")
   const [expiryMonth, setExpiryMonth] = useState("")
@@ -42,7 +46,7 @@ export default function PaymentProcessor({ material, size, orientation, theme, o
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [orderComplete, setOrderComplete] = useState(false)
-  const [orderId, setOrderId] = useState("")
+  const [orderData, setOrderData] = useState<OrderData | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,11 +60,41 @@ export default function PaymentProcessor({ material, size, orientation, theme, o
       return
     }
 
-    // Simulate payment processing
+    // Create customer info from form data
+    const customerInfo: CustomerInfo = {
+      name: cardName,
+      email: `${cardName.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Placeholder - would come from auth
+      isGuest: true,
+      shippingAddress: {
+        line1: address,
+        city,
+        state,
+        postalCode: zipCode,
+        country
+      }
+    }
+
+    // Simulate payment processing then create real order
     setTimeout(() => {
-      setIsLoading(false)
-      setOrderId(`EM${Math.floor(100000 + Math.random() * 900000)}`)
-      setOrderComplete(true)
+      try {
+        // Create complete order with manufacturing data
+        const order = createOrderFromMapState(customerInfo, mapCreationState)
+        
+        // Save order locally (will be replaced with Supabase)
+        saveOrderLocally(order)
+        
+        // Set order data for confirmation
+        setOrderData(order)
+        setOrderComplete(true)
+        setIsLoading(false)
+        
+        console.log('Order created successfully:', order.orderNumber)
+        console.log('Manufacturing data:', order.productionData)
+      } catch (error) {
+        console.error('Failed to create order:', error)
+        setError('Failed to process order. Please try again.')
+        setIsLoading(false)
+      }
     }, 2500)
   }
 
@@ -87,9 +121,9 @@ export default function PaymentProcessor({ material, size, orientation, theme, o
     setCardNumber(formatCardNumber(value))
   }
 
-  if (orderComplete) {
+  if (orderComplete && orderData) {
     return (
-      <OrderConfirmation orderId={orderId} material={material} size={size} orientation={orientation} theme={theme} />
+      <OrderConfirmation orderId={orderData.orderNumber} material={material} size={size} orientation={orientation} theme={theme} />
     )
   }
 
