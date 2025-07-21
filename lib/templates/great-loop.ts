@@ -72,31 +72,27 @@ export const greatLoopTemplate: Template = {
     },
     iconSets: [
       {
-        id: 'nautical-primary',
+        id: 'nautical-primary', 
         name: 'Nautical Icons',
         icons: [
-          { id: 'anchor', name: 'Anchor', category: 'nautical', symbol: '⚓' },
-          { id: 'sailboat', name: 'Sailboat', category: 'nautical', symbol: '⛵' },
-          { id: 'ship', name: 'Ship', category: 'nautical', symbol: '🚢' },
-          { id: 'compass', name: 'Compass', category: 'nautical', symbol: '🧭' },
-          { id: 'lighthouse', name: 'Lighthouse', category: 'nautical', symbol: '🗼' },
-          { id: 'buoy', name: 'Buoy', category: 'nautical', symbol: '🛟' },
-          { id: 'wheel', name: 'Ship Wheel', category: 'nautical', symbol: '⚙️' },
-          { id: 'flag', name: 'Flag', category: 'nautical', symbol: '🏴' }
+          { id: 'anchor', name: 'Anchor', category: 'nautical', symbol: '⚓', svgIcon: 'Anchor' },
+          { id: 'compass', name: 'Compass', category: 'nautical', symbol: '🧭', svgIcon: 'Compass' },
+          { id: 'car', name: 'Car', category: 'nautical', symbol: '🚗', svgIcon: 'Car' },
+          { id: 'flag', name: 'Flag', category: 'nautical', symbol: '🏴', svgIcon: 'Flag' }
         ]
       },
       {
         id: 'locations',
-        name: 'Location Markers',
+        name: 'Location Markers', 
         icons: [
-          { id: 'home', name: 'Home', category: 'location', symbol: '🏠' },
-          { id: 'marina', name: 'Marina', category: 'location', symbol: '🏖️' },
-          { id: 'city', name: 'City', category: 'location', symbol: '🏙️' },
-          { id: 'bridge', name: 'Bridge', category: 'location', symbol: '🌉' },
-          { id: 'sunset', name: 'Sunset', category: 'location', symbol: '🌅' },
-          { id: 'star', name: 'Star', category: 'location', symbol: '⭐' },
-          { id: 'heart', name: 'Heart', category: 'location', symbol: '❤️' },
-          { id: 'pin', name: 'Pin', category: 'location', symbol: '📍' }
+          { id: 'home', name: 'Home', category: 'location', symbol: '🏠', svgIcon: 'Home' },
+          { id: 'mappin', name: 'Map Pin', category: 'location', symbol: '📍', svgIcon: 'MapPin' },
+          { id: 'star', name: 'Star', category: 'location', symbol: '⭐', svgIcon: 'Star' },
+          { id: 'heart', name: 'Heart', category: 'location', symbol: '❤️', svgIcon: 'Heart' },
+          { id: 'camera', name: 'Camera', category: 'location', symbol: '📷', svgIcon: 'Camera' },
+          { id: 'coffee', name: 'Coffee', category: 'location', symbol: '☕', svgIcon: 'Coffee' },
+          { id: 'music', name: 'Music', category: 'location', symbol: '🎵', svgIcon: 'Music' },
+          { id: 'smile', name: 'Smile', category: 'location', symbol: '😊', svgIcon: 'Smile' }
         ]
       }
     ],

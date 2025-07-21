@@ -57,6 +57,7 @@ export interface Icon {
   category: string
   symbol: string
   unicode?: string
+  svgIcon?: string // Optional SVG icon name from our icon registry
 }
 
 export interface RouteData {
