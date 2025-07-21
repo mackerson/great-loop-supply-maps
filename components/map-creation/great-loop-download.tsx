@@ -87,8 +87,24 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloaded, setIsDownloaded] = useState(false)
   const [showPhysicalOptions, setShowPhysicalOptions] = useState(false)
+  const [actualDimensions, setActualDimensions] = useState<Record<string, string>>({})
 
   const mapRendererRef = useRef<MapRendererRef>(null)
+
+  // Calculate actual dimensions for current device and update display
+  useEffect(() => {
+    const devicePixelRatio = window.devicePixelRatio || 1
+    const newDimensions: Record<string, string> = {}
+    
+    downloadPresets.forEach(preset => {
+      const { width, height } = getParsedDimensions(preset.size, preset.orientation)
+      const actualWidth = Math.round(width * devicePixelRatio)
+      const actualHeight = Math.round(height * devicePixelRatio)
+      newDimensions[preset.id] = `${actualWidth}×${actualHeight}`
+    })
+    
+    setActualDimensions(newDimensions)
+  }, [])
 
   // Trigger map resize when preset selection changes
   useEffect(() => {
@@ -105,8 +121,18 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
     }
     
     const [widthStr, heightStr] = sizeString.split('x')
-    const width = parseInt(widthStr)
-    const height = parseInt(heightStr)
+    let width = parseInt(widthStr)
+    let height = parseInt(heightStr)
+    
+    // Account for device pixel ratio to get exact dimensions
+    const devicePixelRatio = window.devicePixelRatio || 1
+    if (devicePixelRatio > 1) {
+      console.log(`Adjusting for device pixel ratio: ${devicePixelRatio}`)
+      // Scale down the target to compensate for automatic DPR scaling
+      width = Math.round(width / devicePixelRatio)
+      height = Math.round(height / devicePixelRatio)
+      console.log(`Adjusted dimensions: ${width}x${height} (will be scaled to ${width * devicePixelRatio}x${height * devicePixelRatio})`)
+    }
     
     return { width, height }
   }
@@ -252,7 +278,7 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
                             <p className="text-sm text-muted-foreground">{preset.description}</p>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {preset.size}
+                            {actualDimensions[preset.id] || preset.size}
                           </div>
                         </div>
                       )
@@ -317,7 +343,7 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
 
                   <div className="mt-4 text-center text-sm text-muted-foreground">
                     Preview: {selectedPresetData?.name} 
-                    {selectedPresetData && ` (${selectedPresetData.size})`}
+                    {selectedPresetData && ` (${actualDimensions[selectedPresetData.id] || selectedPresetData.size})`}
                     <br />
                     <span className="text-xs text-blue-600">Live preview of your actual map</span>
                   </div>

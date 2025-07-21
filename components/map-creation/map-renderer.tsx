@@ -52,9 +52,11 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
             return
           }
 
-          // Store original dimensions
+          // Store original dimensions and view state
           const originalWidth = container.style.width
           const originalHeight = container.style.height
+          const originalCenter = map.getCenter()
+          const originalZoom = map.getZoom()
           
           // Set target dimensions if provided
           if (targetWidth && targetHeight) {
@@ -62,6 +64,38 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
             container.style.width = `${targetWidth}px`
             container.style.height = `${targetHeight}px`
             map.resize()
+            
+            // Re-fit bounds for the new aspect ratio
+            if (selectedTemplate?.config.routeData?.bounds && locations.length > 0) {
+              // Use template bounds for templates with route data (like Great Loop)
+              const templateBounds = selectedTemplate.config.routeData.bounds
+              const bounds = new mapboxgl.LngLatBounds(
+                [templateBounds.west, templateBounds.south],
+                [templateBounds.east, templateBounds.north]
+              )
+              
+                             // Calculate padding based on aspect ratio (smaller = tighter zoom)
+               const aspectRatio = targetWidth / targetHeight
+               let padding: number | { top: number; bottom: number; left: number; right: number } = 20
+               
+               if (aspectRatio < 0.8) {
+                 // Portrait: much tighter for mobile
+                 padding = { top: 10, bottom: 10, left: 15, right: 15 }
+               } else if (aspectRatio > 1.5) {
+                 // Landscape: more vertical padding  
+                 padding = { top: 40, bottom: 40, left: 20, right: 20 }
+               }
+              
+              map.fitBounds(bounds, { padding })
+            } else if (locations.length > 1) {
+              // For multiple locations without template bounds, fit to all locations
+              const bounds = getBounds(locations)
+              map.fitBounds(bounds, { padding: 80 })
+            } else if (locations.length === 1) {
+              // For single location, center and use appropriate zoom
+              map.setCenter([locations[0].lng, locations[0].lat])
+              map.setZoom(10)
+            }
           }
 
           // Wait for map to be fully loaded and idle
@@ -78,14 +112,31 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
                   
                   // Wait a bit more after repaint
                   setTimeout(() => {
+                    // Check if we need to account for device pixel ratio
+                    const actualWidth = canvas.width
+                    const actualHeight = canvas.height
+                    const devicePixelRatio = window.devicePixelRatio || 1
+                    
+                    console.log(`Target: ${targetWidth}x${targetHeight}, Actual canvas: ${actualWidth}x${actualHeight}, DPR: ${devicePixelRatio}`)
+                    
+                    // If we got scaled dimensions due to device pixel ratio, we may need to resize
+                    if (targetWidth && targetHeight && devicePixelRatio > 1) {
+                      const expectedWidth = targetWidth * devicePixelRatio
+                      const expectedHeight = targetHeight * devicePixelRatio
+                      console.log(`Expected with DPR: ${expectedWidth}x${expectedHeight}`)
+                    }
+                    
                     const dataURL = canvas.toDataURL('image/png', 1.0)
                     console.log('DataURL length:', dataURL.length)
                     
-                    // Restore original dimensions
+                    // Restore original dimensions and view
                     if (targetWidth && targetHeight) {
                       container.style.width = originalWidth
                       container.style.height = originalHeight
                       map.resize()
+                      // Restore original view
+                      map.setCenter(originalCenter)
+                      map.setZoom(originalZoom)
                     }
                     
                     resolve(dataURL)
@@ -93,11 +144,13 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
                 } catch (error) {
                   console.error('Canvas export error:', error)
                   
-                  // Restore original dimensions on error
+                  // Restore original dimensions and view on error
                   if (targetWidth && targetHeight) {
                     container.style.width = originalWidth
                     container.style.height = originalHeight
                     map.resize()
+                    map.setCenter(originalCenter)
+                    map.setZoom(originalZoom)
                   }
                   
                   reject(error)
