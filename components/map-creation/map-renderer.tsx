@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "re
 import mapboxgl from 'mapbox-gl'
 import { MAPBOX_ACCESS_TOKEN, getBounds } from '@/lib/mapbox'
 import { useMapCreationStore } from '@/stores/map-creation'
+import { generateThemeIcons, getIconByName, emojiToIconMap } from '@/lib/icon-registry'
 
 // Import Mapbox CSS
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -353,7 +354,25 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
         })
         
         // Add route layer with theme-appropriate styling
-        const routeColor = selectedTemplate.config.styling.primaryColor || '#1e40af'
+        let routeColor = selectedTemplate.config.styling.primaryColor || '#1e40af'
+        
+        // Override route color based on theme for better visibility
+        switch (mapStyle.theme) {
+          case 'nautical':
+            routeColor = '#1e40af' // Deep blue for nautical
+            break
+          case 'minimalist':
+            routeColor = '#475569' // Slate for minimalist
+            break
+          case 'woodburn':
+            routeColor = '#92400e' // Amber for woodburn
+            break
+          case 'vintage':
+            routeColor = '#44403c' // Stone for vintage
+            break
+          default:
+            routeColor = selectedTemplate.config.styling.primaryColor || '#1e40af'
+        }
         mapInstance.addLayer({
           id: 'route',
           type: 'line',
@@ -387,108 +406,122 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
         }, 'route') // Insert below the main route line
       }
 
+      // Add location markers as map layers (after style is loaded)
+      if (locations.length > 0) {
+        // Generate theme-appropriate icons
+        const themeIcons = generateThemeIcons(mapStyle.theme)
+        
+        // Add icon images to map
+        Object.entries(themeIcons).forEach(([iconName, dataUrl]) => {
+          if (!mapInstance.hasImage(iconName)) {
+            const img = new Image()
+            img.onload = () => mapInstance.addImage(iconName, img)
+            img.src = dataUrl
+          }
+        })
+
+        // Create GeoJSON source for location points
+        const locationFeatures = locations.map((location, index) => {
+          // Determine which icon to use
+          let iconId = 'MapPin' // Default fallback
+          
+          if (location.iconType === 'icon' && location.icon) {
+            // Map old icon names to new icon names
+            iconId = emojiToIconMap[location.icon] || location.icon
+          } else if (location.iconType === 'emoji' && location.emoji) {
+            // For now, use a default icon for emojis (we could expand this mapping)
+            iconId = 'Heart' // Default for emoji type
+          }
+
+          // Ensure the icon exists in our registry
+          const iconDef = getIconByName(iconId)
+          if (!iconDef) {
+            iconId = 'MapPin' // Ultimate fallback
+          }
+
+          return {
+            type: 'Feature' as const,
+            properties: {
+              title: location.name,
+              description: location.caption || '',
+              iconId: iconId,
+              index: index
+            },
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [location.lng, location.lat]
+            }
+          }
+        })
+
+        // Add location markers source
+        mapInstance.addSource('location-markers', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection' as const,
+            features: locationFeatures
+          }
+        })
+
+        // Add location marker icons
+        mapInstance.addLayer({
+          id: 'location-icons',
+          type: 'symbol',
+          source: 'location-markers',
+          layout: {
+            'icon-image': ['get', 'iconId'],
+            'icon-size': 1.0,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'center'
+          }
+        })
+      }
+
       // Notify parent that map is loaded
       if (onMapLoad) {
         onMapLoad(mapInstance)
       }
     })
 
-    // Add custom markers for each location
-    locations.forEach((location, index) => {
-      // Create custom marker element
-      const markerElement = document.createElement('div')
-      markerElement.className = 'custom-marker'
-      markerElement.style.cssText = `
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background-color: ${themeColors.markers};
-        border: 3px solid white;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        color: white;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease;
-      `
+          // Add DOM markers for interactivity (click handlers, popups)
+      locations.forEach((location, index) => {
+        // Create minimal DOM marker for interactivity only
+        const markerElement = document.createElement('div')
+        markerElement.style.cssText = `
+          width: 32px;
+          height: 32px;
+          background: transparent;
+          cursor: pointer;
+        `
 
-      // Helper function to get icon symbol for map markers
-      const getIconSymbol = (iconName: string): string => {
-        const iconMap: Record<string, string> = {
-          'Heart': '❤️',
-          'Star': '⭐',
-          'Home': '🏠',
-          'Coffee': '☕',
-          'Map': '🗺️',
-          'Music': '🎵',
-          'Camera': '📷',
-          'Smile': '😊',
-          'Frown': '😢',
-          'Compass': '🧭',
-          'Anchor': '⚓'
-        }
-        return iconMap[iconName] || '📍'
-      }
+        // Create marker and add to map
+        const marker = new mapboxgl.Marker(markerElement)
+          .setLngLat([location.lng, location.lat])
+          .addTo(mapInstance)
 
-      // Add icon or emoji to marker
-      if (location.iconType === 'emoji' && location.emoji) {
-        markerElement.textContent = location.emoji
-        markerElement.style.fontSize = '16px'
-        markerElement.style.backgroundColor = 'transparent'
-        markerElement.style.border = 'none'
-        markerElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
-      } else if (location.iconType === 'image' && location.customImage) {
-        markerElement.innerHTML = ''
-        markerElement.style.backgroundImage = `url(${location.customImage})`
-        markerElement.style.backgroundSize = 'cover'
-        markerElement.style.backgroundPosition = 'center'
-        markerElement.style.backgroundColor = 'transparent'
-      } else if (location.iconType === 'icon' && location.icon) {
-        // Convert icon name to emoji symbol for map display
-        const iconSymbol = getIconSymbol(location.icon)
-        markerElement.textContent = iconSymbol
-        markerElement.style.fontSize = '16px'
-        markerElement.style.backgroundColor = 'transparent'
-        markerElement.style.border = 'none'
-        markerElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
-      } else {
-        markerElement.textContent = (index + 1).toString()
-      }
-
-      // Create marker and add to map
-      const marker = new mapboxgl.Marker(markerElement)
-        .setLngLat([location.lng, location.lat])
-        .addTo(mapInstance)
-
-      // Add click handler
-      markerElement.addEventListener('click', () => {
-        setActiveLocationIndex(index)
-        markerElement.style.transform = 'scale(1.2)'
-        setTimeout(() => {
-          markerElement.style.transform = 'scale(1)'
-        }, 200)
-      })
-
-      // Add popup with location info
-      if (location.caption || location.narrative) {
-        const popup = new mapboxgl.Popup({ 
-          offset: 25,
-          closeButton: false 
+        // Add click handler
+        markerElement.addEventListener('click', () => {
+          setActiveLocationIndex(index)
         })
-        .setHTML(`
-          <div style="text-align: center; padding: 12px; max-width: 200px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #333;">${location.name}</h3>
-            ${location.caption ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #666; font-weight: 500;">${location.caption}</p>` : ''}
-            ${location.narrative ? `<p style="margin: 0; font-size: 12px; color: #888; line-height: 1.4;">${location.narrative}</p>` : ''}
-          </div>
-        `)
 
-        marker.setPopup(popup)
-      }
-    })
+        // Add popup with location info
+        if (location.caption || location.narrative) {
+          const popup = new mapboxgl.Popup({ 
+            offset: 25,
+            closeButton: false 
+          })
+          .setHTML(`
+            <div style="text-align: center; padding: 12px; max-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #333;">${location.name}</h3>
+              ${location.caption ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #666; font-weight: 500;">${location.caption}</p>` : ''}
+              ${location.narrative ? `<p style="margin: 0; font-size: 12px; color: #888; line-height: 1.4;">${location.narrative}</p>` : ''}
+            </div>
+          `)
+
+          marker.setPopup(popup)
+        }
+      })
 
     // Fit map to show appropriate view
     if (selectedTemplate?.config.routeData?.bounds && locations.length > 0) {

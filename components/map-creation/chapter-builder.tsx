@@ -17,6 +17,8 @@ import {
   Frown,
   Compass,
   Anchor,
+  Car,
+  Flag,
   Upload,
   X,
   ChevronLeft,
@@ -26,6 +28,7 @@ import {
 import { motion } from "framer-motion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMapCreationStore, type Location } from '@/stores/map-creation'
+import { iconRegistry, getIconsByCategory } from '@/lib/icon-registry'
 
 // Fallback icons for locations
 const fallbackIcons = [
@@ -69,15 +72,17 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
     getPromptDescriptionForStep
   } = useMapCreationStore()
   
-  // Get template-specific icons and emojis
+  // Get template-specific icons and emojis from the new icon registry
   const templateIconSets = getTemplateIconSets()
-  const availableIcons = templateIconSets.length > 0 ? 
-    templateIconSets.flatMap(set => set.icons.map(icon => ({ 
-      name: icon.name, 
-      icon: fallbackIcons.find(f => f.name.toLowerCase().includes(icon.name.toLowerCase()))?.icon || Heart 
-    }))) :
-    fallbackIcons
-    
+  
+  // Use SVG icons from registry, organized by category
+  const availableIcons = iconRegistry.map(iconDef => ({
+    name: iconDef.name,
+    icon: fallbackIcons.find(f => f.name === iconDef.name)?.icon || Heart, // For UI display
+    category: iconDef.category
+  }))
+  
+  // Keep emoji support for backward compatibility  
   const availableEmojis = templateIconSets.length > 0 ?
     templateIconSets.flatMap(set => set.icons.map(icon => icon.symbol)).filter(symbol => symbol && symbol.length <= 2) :
     fallbackEmojis
@@ -339,21 +344,77 @@ export function ChapterBuilder({ onBack, onNext }: ChapterBuilderProps) {
                   <TabsContent value="icon" className="space-y-4">
                     <div className="space-y-2">
                       <Label>Choose an icon</Label>
-                      <div className="grid grid-cols-6 gap-2">
-                        {availableIcons.map((iconItem) => {
-                          const IconComponent = iconItem.icon
-                          return (
-                            <Button
-                              key={iconItem.name}
-                              variant={activeLocation.icon === iconItem.name ? "default" : "outline"}
-                              size="icon"
-                              className="h-12 w-12"
-                              onClick={() => updateLocationIcon(activeLocationIndex, iconItem.name)}
-                            >
-                              <IconComponent className="h-6 w-6" />
-                            </Button>
-                          )
-                        })}
+                      
+                      {/* Travel Icons */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Travel & Navigation</h4>
+                        <div className="grid grid-cols-6 gap-2">
+                          {getIconsByCategory('travel').map((iconItem) => {
+                            const IconComponent = iconItem.name === 'Home' ? Home :
+                                               iconItem.name === 'MapPin' ? Map :
+                                               iconItem.name === 'Compass' ? Compass :
+                                               iconItem.name === 'Anchor' ? Anchor :
+                                               iconItem.name === 'Car' ? Car : Heart
+                            return (
+                              <Button
+                                key={iconItem.name}
+                                variant={activeLocation.icon === iconItem.name ? "default" : "outline"}
+                                size="icon"
+                                className="h-12 w-12"
+                                onClick={() => updateLocationIcon(activeLocationIndex, iconItem.name)}
+                              >
+                                <IconComponent className="h-6 w-6" />
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Activity Icons */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Activities</h4>
+                        <div className="grid grid-cols-6 gap-2">
+                          {getIconsByCategory('activities').map((iconItem) => {
+                            const IconComponent = iconItem.name === 'Camera' ? Camera :
+                                               iconItem.name === 'Coffee' ? Coffee :
+                                               iconItem.name === 'Music' ? Music :
+                                               iconItem.name === 'Heart' ? Heart :
+                                               iconItem.name === 'Star' ? Star : Heart
+                            return (
+                              <Button
+                                key={iconItem.name}
+                                variant={activeLocation.icon === iconItem.name ? "default" : "outline"}
+                                size="icon"
+                                className="h-12 w-12"
+                                onClick={() => updateLocationIcon(activeLocationIndex, iconItem.name)}
+                              >
+                                <IconComponent className="h-6 w-6" />
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Emotion Icons */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground">Emotions & Markers</h4>
+                        <div className="grid grid-cols-6 gap-2">
+                          {getIconsByCategory('emotions').map((iconItem) => {
+                            const IconComponent = iconItem.name === 'Smile' ? Smile :
+                                               iconItem.name === 'Flag' ? Flag : Heart
+                            return (
+                              <Button
+                                key={iconItem.name}
+                                variant={activeLocation.icon === iconItem.name ? "default" : "outline"}
+                                size="icon"
+                                className="h-12 w-12"
+                                onClick={() => updateLocationIcon(activeLocationIndex, iconItem.name)}
+                              >
+                                <IconComponent className="h-6 w-6" />
+                              </Button>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   </TabsContent>
