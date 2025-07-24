@@ -16,6 +16,7 @@ import { Download, Eye, Package, Truck, CheckCircle } from 'lucide-react'
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderData[]>([])
   const [loading, setLoading] = useState(true)
+  const [downloadingFiles, setDownloadingFiles] = useState<{ [orderId: string]: boolean }>({})
 
   useEffect(() => {
     loadOrders()
@@ -37,35 +38,62 @@ export default function AdminOrdersPage() {
     loadOrders() // Refresh the orders list
   }
 
-  const handleDownloadManufacturingData = (order: OrderData) => {
+  const downloadManufacturingFiles = async (order: OrderData) => {
     try {
-      const manufacturingExport = generateManufacturingExport(order)
+      setDownloadingFiles(prev => ({ ...prev, [order.id]: true }))
       
-      // Create downloadable files
+      console.log(`Starting manufacturing export for order ${order.orderNumber}...`)
+      
+      // Generate manufacturing files with real Mapbox data (async)
+      const manufacturingExport = await generateManufacturingExport(order)
+      
+      // Create download for each file type
       const files = [
-        { name: `${order.orderNumber}-cut.svg`, content: manufacturingExport.formats.svg.cutLayer },
-        { name: `${order.orderNumber}-engrave.svg`, content: manufacturingExport.formats.svg.engraveLayer },
-        { name: `${order.orderNumber}-combined.svg`, content: manufacturingExport.formats.svg.combined },
-        { name: `${order.orderNumber}-material-spec.txt`, content: manufacturingExport.formats.specs.materialSheet },
-        { name: `${order.orderNumber}-instructions.txt`, content: manufacturingExport.formats.specs.productionInstructions }
+        { name: `cut-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.cutLayer, type: 'image/svg+xml' },
+        { name: `engrave-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.engraveLayer, type: 'image/svg+xml' },
+        { name: `combined-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.combined, type: 'image/svg+xml' },
+        { name: `cut-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.cutFile, type: 'application/dxf' },
+        { name: `engrave-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.engraveFile, type: 'application/dxf' },
+        { name: `material-spec-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.materialSheet, type: 'text/plain' },
+        { name: `production-instructions-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.productionInstructions, type: 'text/plain' }
       ]
-
+      
       // Download each file
       files.forEach(file => {
-        const blob = new Blob([file.content], { type: 'text/plain' })
+        const blob = new Blob([file.content], { type: file.type })
         const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = file.name
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = file.name
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
         URL.revokeObjectURL(url)
       })
-
-      console.log('Manufacturing files downloaded for order:', order.orderNumber)
+      
+      console.log(`Successfully downloaded ${files.length} manufacturing files for order ${order.orderNumber}`)
+      
     } catch (error) {
-      console.error('Failed to generate manufacturing data:', error)
+      console.error('Manufacturing export failed:', error)
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to generate manufacturing files.'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Mapbox access token')) {
+          errorMessage = 'Manufacturing exports require Mapbox access token. Please configure your environment variables.'
+        } else if (error.message.includes('No geographic features found')) {
+          errorMessage = 'Unable to fetch geographic data for this map area. The region may not be supported or there may be a network issue.'
+        } else if (error.message.includes('Unable to fetch real geographic data')) {
+          errorMessage = 'Failed to fetch map data from Mapbox. Please check your internet connection and try again.'
+        } else {
+          errorMessage = `Manufacturing export error: ${error.message}`
+        }
+      }
+      
+      alert(errorMessage)
+    } finally {
+      setDownloadingFiles(prev => ({ ...prev, [order.id]: false }))
     }
   }
 
@@ -174,10 +202,11 @@ export default function AdminOrdersPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDownloadManufacturingData(order)}
+                        onClick={() => downloadManufacturingFiles(order)}
+                        disabled={downloadingFiles[order.id]}
                       >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Production Files
+                        {downloadingFiles[order.id] ? 'Generating...' : 'Download Production Files'}
+                        <Download className="w-4 h-4 ml-2" />
                       </Button>
 
                       {order.status === 'pending' && (

@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { motion } from "framer-motion"
-import { Download, ArrowLeft, Check, Smartphone, Monitor, Printer, Anchor, Heart, Star, ChevronRight } from "lucide-react"
+import { Download, ArrowLeft, Check, Smartphone, Monitor, Printer, Anchor, Heart, Star, ChevronRight, ShoppingCart } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useMapCreationStore } from '@/stores/map-creation'
 import { MapRenderer, type MapRendererRef } from './map-renderer'
+import PaymentProcessor from '@/components/payment-processor'
 import html2canvas from 'html2canvas'
 
 interface GreatLoopDownloadProps {
@@ -47,6 +48,49 @@ const downloadPresets = [
   }
 ]
 
+// Available materials for physical maps
+const materials = [
+  {
+    id: "cherry-wood",
+    name: "Cherry Wood",
+    description: "Classic warmth with beautiful grain patterns",
+    price: 89,
+    image: "/materials/cherry-wood.jpg",
+    engraveDepth: 0.01
+  },
+  {
+    id: "walnut",
+    name: "Walnut Wood", 
+    description: "Rich, dark tones for an elegant display",
+    price: 99,
+    image: "/materials/walnut.jpg",
+    engraveDepth: 0.01
+  },
+  {
+    id: "bamboo",
+    name: "Bamboo",
+    description: "Eco-friendly with modern appeal",
+    price: 79,
+    image: "/materials/bamboo.jpg",
+    engraveDepth: 0.005
+  },
+  {
+    id: "aluminum",
+    name: "Anodized Aluminum",
+    description: "Marine-grade durability, perfect for boats",
+    price: 129,
+    image: "/materials/aluminum.jpg",
+    engraveDepth: 0.02
+  }
+]
+
+// Available sizes
+const sizes = [
+  { id: "8x10", name: "8\" × 10\"", description: "Perfect for desk or shelf" },
+  { id: "11x14", name: "11\" × 14\"", description: "Great for wall display" },
+  { id: "16x20", name: "16\" × 20\"", description: "Statement piece" }
+]
+
 // Physical keepsake showcase
 const physicalShowcase = [
   {
@@ -54,7 +98,6 @@ const physicalShowcase = [
     title: "Perfect for Your Boat Cabin",
     description: "Display your Great Loop achievement where fellow Loopers can see it",
     image: "/showcase/boat-cabin-map.jpg", // Placeholder
-    price: "$89",
     material: "Marine-grade aluminum"
   },
   {
@@ -62,7 +105,6 @@ const physicalShowcase = [
     title: "Beautiful Home Display",
     description: "A conversation starter that tells your adventure story",
     image: "/showcase/home-office-map.jpg", // Placeholder  
-    price: "$79",
     material: "Premium maple wood"
   },
   {
@@ -70,7 +112,6 @@ const physicalShowcase = [
     title: "Perfect Gift for Fellow Loopers",
     description: "Custom engraved with their home port and special anchorages",
     image: "/showcase/gift-map.jpg", // Placeholder
-    price: "$99", 
     material: "Brushed marine brass"
   }
 ]
@@ -87,6 +128,10 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloaded, setIsDownloaded] = useState(false)
   const [showPhysicalOptions, setShowPhysicalOptions] = useState(false)
+  const [showOrderFlow, setShowOrderFlow] = useState(false)
+  const [selectedMaterial, setSelectedMaterial] = useState<string>("")
+  const [selectedSize, setSelectedSize] = useState<string>("")
+  const [selectedOrientation, setSelectedOrientation] = useState<string>("portrait")
   const [actualDimensions, setActualDimensions] = useState<Record<string, string>>({})
 
   const mapRendererRef = useRef<MapRendererRef>(null)
@@ -182,6 +227,20 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
     }
   }
 
+  const handleOrderPhysicalMap = () => {
+    setShowPhysicalOptions(false)
+    setShowOrderFlow(true)
+  }
+
+  const handleProceedToPayment = () => {
+    if (!selectedMaterial || !selectedSize) {
+      alert('Please select both material and size')
+      return
+    }
+    // This will trigger the payment processor view
+    setShowOrderFlow(true)
+  }
+
   const getThemeColors = () => {
     if (selectedTemplate?.config.styling.theme === 'nautical') {
       return {
@@ -199,6 +258,21 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
 
   const themeColors = getThemeColors()
   const selectedPresetData = downloadPresets.find(p => p.id === selectedPreset)
+  const selectedMaterialData = materials.find(m => m.id === selectedMaterial)
+  const selectedSizeData = sizes.find(s => s.id === selectedSize)
+
+  // Show payment processor if order flow is active and material/size selected
+  if (showOrderFlow && selectedMaterial && selectedSize && selectedMaterialData) {
+    return (
+      <PaymentProcessor
+        material={selectedMaterialData}
+        size={selectedSizeData?.name || selectedSize}
+        orientation={selectedOrientation}
+        theme={selectedTemplate?.config.styling.theme || 'nautical'}
+        onBack={() => setShowOrderFlow(false)}
+      />
+    )
+  }
 
   return (
     <motion.div
@@ -223,7 +297,221 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
           <div className="w-[130px]"></div> {/* Spacer for centering */}
         </div>
 
-        {!showPhysicalOptions ? (
+        {showOrderFlow && (!selectedMaterial || !selectedSize) ? (
+          /* Product Configuration Section */
+          <div className="space-y-8">
+            <div className="text-center">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowOrderFlow(false)}
+                className="mb-4"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Options
+              </Button>
+              <div className="flex items-center gap-2 justify-center mb-2">
+                <ShoppingCart className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-600 uppercase tracking-wide">
+                  Custom Order
+                </span>
+              </div>
+              <h2 className="text-3xl font-light mb-3">
+                Create Your Physical Map
+              </h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Choose your material and size to create a lasting keepsake of your Great Loop adventure.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Material Selection */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Choose Material</CardTitle>
+                    <CardDescription>Select the perfect material for your map</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RadioGroup value={selectedMaterial} onValueChange={setSelectedMaterial}>
+                      <div className="space-y-4">
+                        {materials.map((material) => (
+                          <div 
+                            key={material.id}
+                            className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                              selectedMaterial === material.id 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-border hover:bg-accent'
+                            }`}
+                            onClick={() => setSelectedMaterial(material.id)}
+                          >
+                            <RadioGroupItem value={material.id} id={material.id} />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor={material.id} className="font-medium cursor-pointer">
+                                  {material.name}
+                                </Label>
+                                <span className="font-medium">${material.price}</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{material.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </RadioGroup>
+                  </CardContent>
+                </Card>
+
+                {/* Size Selection */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Choose Size</CardTitle>
+                    <CardDescription>Select the dimensions for your map</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RadioGroup value={selectedSize} onValueChange={setSelectedSize}>
+                      <div className="space-y-3">
+                        {sizes.map((size) => (
+                          <div 
+                            key={size.id}
+                            className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              selectedSize === size.id 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-border hover:bg-accent'
+                            }`}
+                            onClick={() => setSelectedSize(size.id)}
+                          >
+                            <RadioGroupItem value={size.id} id={size.id} />
+                            <div className="flex-1">
+                              <Label htmlFor={size.id} className="font-medium cursor-pointer">
+                                {size.name}
+                              </Label>
+                              <p className="text-sm text-muted-foreground">{size.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </RadioGroup>
+                  </CardContent>
+                </Card>
+
+                {/* Orientation Selection */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Orientation</CardTitle>
+                    <CardDescription>Choose how your map will be oriented</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RadioGroup value={selectedOrientation} onValueChange={setSelectedOrientation}>
+                      <div className="space-y-3">
+                        <div 
+                          className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedOrientation === 'portrait' 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-border hover:bg-accent'
+                          }`}
+                          onClick={() => setSelectedOrientation('portrait')}
+                        >
+                          <RadioGroupItem value="portrait" id="portrait" />
+                          <Label htmlFor="portrait" className="font-medium cursor-pointer">
+                            Portrait (Tall)
+                          </Label>
+                        </div>
+                        <div 
+                          className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedOrientation === 'landscape' 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-border hover:bg-accent'
+                          }`}
+                          onClick={() => setSelectedOrientation('landscape')}
+                        >
+                          <RadioGroupItem value="landscape" id="landscape" />
+                          <Label htmlFor="landscape" className="font-medium cursor-pointer">
+                            Landscape (Wide)
+                          </Label>
+                        </div>
+                      </div>
+                    </RadioGroup>
+                  </CardContent>
+                </Card>
+
+                <Button 
+                  onClick={handleProceedToPayment} 
+                  className="w-full" 
+                  size="lg"
+                  disabled={!selectedMaterial || !selectedSize}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Proceed to Payment
+                  {selectedMaterialData && ` • $${selectedMaterialData.price}`}
+                </Button>
+              </div>
+
+              {/* Map Preview */}
+              <div className="space-y-6">
+                <Card>
+                  <CardContent className="p-6">
+                    <div 
+                      className={`${
+                        selectedOrientation === 'landscape' ? 'aspect-video' : 'aspect-[3/4]'
+                      } rounded-lg border border-border overflow-hidden relative`}
+                    >
+                      <div className="absolute inset-0">
+                        <MapRenderer 
+                          ref={mapRendererRef}
+                          className=""
+                          style={{ width: '100%', height: '100%' }}
+                          showControls={false}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 text-center text-sm text-muted-foreground">
+                      Preview: {selectedSizeData?.name || selectedSize} {selectedOrientation}
+                      {selectedMaterialData && (
+                        <>
+                          <br />
+                          <span className="text-blue-600">{selectedMaterialData.name}</span>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {selectedMaterialData && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Order Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Material:</span>
+                        <span>{selectedMaterialData.name}</span>
+                      </div>
+                      {selectedSizeData && (
+                        <div className="flex justify-between">
+                          <span>Size:</span>
+                          <span>{selectedSizeData.name}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span>Orientation:</span>
+                        <span className="capitalize">{selectedOrientation}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Shipping:</span>
+                        <span>Free</span>
+                      </div>
+                      <div className="pt-2 border-t flex justify-between font-medium text-lg">
+                        <span>Total:</span>
+                        <span>${selectedMaterialData.price}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : !showPhysicalOptions ? (
           /* Free Download Section */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Download Options */}
@@ -420,9 +708,9 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
                       <p className="text-sm text-blue-600">{item.material}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-medium">{item.price}</span>
-                      <Button variant="outline" size="sm">
-                        Learn More
+                      <span className="text-sm text-muted-foreground">Starting at $79</span>
+                      <Button variant="outline" size="sm" onClick={handleOrderPhysicalMap}>
+                        Order Now
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
                     </div>
@@ -432,6 +720,10 @@ export function GreatLoopDownload({ onBack }: GreatLoopDownloadProps) {
             </div>
 
             <div className="text-center">
+              <Button onClick={handleOrderPhysicalMap} size="lg" className="mb-4">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Create Custom Physical Map
+              </Button>
               <div className="inline-flex items-center gap-4 p-6 bg-blue-50 rounded-lg">
                 <Heart className="h-8 w-8 text-blue-600" />
                 <div className="text-left">
