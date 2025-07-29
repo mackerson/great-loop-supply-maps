@@ -149,17 +149,24 @@ export interface ManufacturingExport {
   formats: {
     svg: {
       cutLayer: string
-      engraveLayer: string
+      textEngraveLayer: string
+      geographicFeaturesLayer: string
+      routePathLayer: string
+      engraveLayer?: string // Legacy support
       combined: string
     }
     dxf: {
       cutFile: string
-      engraveFile: string
+      textEngraveFile: string
+      geographicFeaturesFile: string
+      routePathFile: string
+      engraveFile?: string // Legacy support
     }
     specs: {
       materialSheet: string
       productionInstructions: string
       customerPreview: string
+      manufacturingGuide: string
     }
   }
   metadata: {

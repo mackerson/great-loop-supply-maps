@@ -47,15 +47,28 @@ export default function AdminOrdersPage() {
       // Generate manufacturing files with real Mapbox data (async)
       const manufacturingExport = await generateManufacturingExport(order)
       
-      // Create download for each file type
+      // Create download for each file type - NEW MULTI-LAYER APPROACH
       const files = [
+        // Cut layer
         { name: `cut-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.cutLayer, type: 'image/svg+xml' },
-        { name: `engrave-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.engraveLayer, type: 'image/svg+xml' },
+        
+        // Text engraving layer
+        { name: `text-engrave-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.textEngraveLayer, type: 'image/svg+xml' },
+        { name: `text-engrave-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.textEngraveFile, type: 'application/dxf' },
+        
+        // Geographic features layer  
+        { name: `geographic-features-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.geographicFeaturesLayer, type: 'image/svg+xml' },
+        { name: `geographic-features-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.geographicFeaturesFile, type: 'application/dxf' },
+        
+        // Route path layer
+        { name: `route-path-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.routePathLayer, type: 'image/svg+xml' },
+        { name: `route-path-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.routePathFile, type: 'application/dxf' },
+        
+        // Combined and specifications
         { name: `combined-${order.orderNumber}.svg`, content: manufacturingExport.formats.svg.combined, type: 'image/svg+xml' },
-        { name: `cut-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.cutFile, type: 'application/dxf' },
-        { name: `engrave-${order.orderNumber}.dxf`, content: manufacturingExport.formats.dxf.engraveFile, type: 'application/dxf' },
         { name: `material-spec-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.materialSheet, type: 'text/plain' },
-        { name: `production-instructions-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.productionInstructions, type: 'text/plain' }
+        { name: `production-instructions-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.productionInstructions, type: 'text/plain' },
+        { name: `manufacturing-guide-${order.orderNumber}.txt`, content: manufacturingExport.formats.specs.manufacturingGuide, type: 'text/plain' }
       ]
       
       // Download each file
@@ -72,6 +85,7 @@ export default function AdminOrdersPage() {
       })
       
       console.log(`Successfully downloaded ${files.length} manufacturing files for order ${order.orderNumber}`)
+      console.log('Files generated:', files.map(f => f.name).join(', '))
       
     } catch (error) {
       console.error('Manufacturing export failed:', error)

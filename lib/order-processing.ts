@@ -228,23 +228,28 @@ export async function generateManufacturingExport(order: OrderData): Promise<Man
       formats: {
         svg: {
           cutLayer: generateCutLayerSVG(order),
-          engraveLayer: await generateEngraveLayerSVG(order), // Real Mapbox data required
+          textEngraveLayer: await generateTextEngraveLayerSVG(order),
+          geographicFeaturesLayer: await generateGeographicFeaturesLayerSVG(order),
+          routePathLayer: await generateRoutePathLayerSVG(order),
           combined: await generateCombinedSVGAsync(order)
         },
         dxf: {
           cutFile: generateCutDXF(order),
-          engraveFile: generateEngraveDXF(order)
+          textEngraveFile: generateTextEngraveDXF(order),
+          geographicFeaturesFile: generateGeographicFeaturesDXF(order),
+          routePathFile: generateRoutePathDXF(order)
         },
         specs: {
           materialSheet: generateMaterialSheet(order),
           productionInstructions: generateProductionInstructions(order),
-          customerPreview: generateCustomerPreview(order)
+          customerPreview: generateCustomerPreview(order),
+          manufacturingGuide: generateManufacturingProcessGuide(order)
         }
       },
       metadata: {
         exportedAt: now,
         exportedBy: 'system',
-        version: '2.0-mapbox-required'
+        version: '3.0-multi-layer-manufacturing'
       }
     }
   } catch (error) {
@@ -258,29 +263,218 @@ function generateCutLayerSVG(order: OrderData): string {
   const { widthInches, heightInches } = order.productionData.dimensions
   const margin = 0.125 // 1/8 inch margin for cutting
   
+  console.log('Generating cut layer with dimensions:', { widthInches, heightInches, margin })
+  
   // Convert inches to points (72 DPI)
   const widthPts = widthInches * 72
   const heightPts = heightInches * 72
   const marginPts = margin * 72
   
-  return `<svg width="${widthInches}in" height="${heightInches}in" viewBox="0 0 ${widthPts} ${heightPts}" xmlns="http://www.w3.org/2000/svg">
+  console.log('Cut layer calculations:', { widthPts, heightPts, marginPts })
+  
+  const cutSVG = `<svg width="${widthInches}in" height="${heightInches}in" viewBox="0 0 ${widthPts} ${heightPts}" xmlns="http://www.w3.org/2000/svg">
     <!-- Cut layer - outer boundary for cutting -->
     <rect x="${marginPts}" y="${marginPts}" 
           width="${widthPts - (2 * marginPts)}" 
           height="${heightPts - (2 * marginPts)}" 
           fill="none" 
           stroke="red" 
-          stroke-width="0.25"
+          stroke-width="2"
           class="cut-boundary"/>
     
     <!-- Corner registration marks -->
-    <circle cx="${marginPts}" cy="${marginPts}" r="2" fill="red" class="registration-mark"/>
-    <circle cx="${widthPts - marginPts}" cy="${marginPts}" r="2" fill="red" class="registration-mark"/>
-    <circle cx="${marginPts}" cy="${heightPts - marginPts}" r="2" fill="red" class="registration-mark"/>
-    <circle cx="${widthPts - marginPts}" cy="${heightPts - marginPts}" r="2" fill="red" class="registration-mark"/>
+    <circle cx="${marginPts}" cy="${marginPts}" r="4" fill="red" class="registration-mark"/>
+    <circle cx="${widthPts - marginPts}" cy="${marginPts}" r="4" fill="red" class="registration-mark"/>
+    <circle cx="${marginPts}" cy="${heightPts - marginPts}" r="4" fill="red" class="registration-mark"/>
+    <circle cx="${widthPts - marginPts}" cy="${heightPts - marginPts}" r="4" fill="red" class="registration-mark"/>
+    
+    <!-- Debug info -->
+    <text x="10" y="20" font-family="Arial" font-size="8" fill="red">
+      Cut: ${widthInches}"×${heightInches}" (${widthPts}×${heightPts}pts)
+    </text>
   </svg>`
+  
+  console.log('Generated cut SVG:', cutSVG.substring(0, 200) + '...')
+  return cutSVG
 }
 
+// Generate text and symbols layer (fine laser engraving)
+async function generateTextEngraveLayerSVG(order: OrderData): Promise<string> {
+  const { widthInches, heightInches } = order.productionData.dimensions
+  const { mapData } = order
+  
+  // Convert inches to points (72 DPI)
+  const widthPts = widthInches * 72
+  const heightPts = heightInches * 72
+  const margin = 36 // 0.5 inch margin for content
+  const contentWidth = widthPts - (2 * margin)
+  const contentHeight = heightPts - (2 * margin)
+  
+  // Start building SVG content for text/symbols only
+  let svgContent = `<svg width="${widthInches}in" height="${heightInches}in" viewBox="0 0 ${widthPts} ${heightPts}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        .map-title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; text-anchor: middle; fill: black; }
+        .location-label { font-family: Arial, sans-serif; font-size: 8px; text-anchor: middle; fill: black; }
+        .chapter-title { font-family: Arial, sans-serif; font-size: 10px; font-weight: bold; text-anchor: start; fill: black; }
+        .location-marker { fill: black; stroke: none; }
+      </style>
+    </defs>
+    
+    <!-- Content group with margins -->
+    <g transform="translate(${margin}, ${margin})">
+  `
+  
+  // Add title
+  svgContent += `
+      <!-- Map Title -->
+      <text x="${contentWidth / 2}" y="30" class="map-title">${mapData.template.name}</text>
+  `
+  
+  const mapContentY = 50
+  const mapContentHeight = contentHeight - 100
+  
+  // Calculate map bounds for positioning
+  const bounds = calculateMapBounds(mapData)
+  
+  // Add location markers and labels
+  const locationMarkers = generateLocationMarkers(mapData.locations, bounds, contentWidth, mapContentHeight, mapContentY)
+  svgContent += locationMarkers
+  
+  // Add chapter information
+  const chapterInfo = generateChapterInfo(mapData.chapters, mapData.locations, contentWidth, contentHeight)
+  svgContent += chapterInfo
+  
+  svgContent += `
+    </g>
+  </svg>`
+  
+  return svgContent
+}
+
+// Generate geographic features layer (deep CNC routing or laser etching)
+async function generateGeographicFeaturesLayerSVG(order: OrderData): Promise<string> {
+  const { widthInches, heightInches } = order.productionData.dimensions
+  const { mapData } = order
+  
+  // Geographic features now use OpenStreetMap (no token required)
+  
+  // Convert inches to points (72 DPI)
+  const widthPts = widthInches * 72
+  const heightPts = heightInches * 72
+  const margin = 36 // 0.5 inch margin for content
+  const contentWidth = widthPts - (2 * margin)
+  const contentHeight = heightPts - (2 * margin)
+  
+  // Calculate map bounds from locations and route
+  const bounds = calculateMapBounds(mapData)
+  
+  // Start building SVG content for geographic features only
+  let svgContent = `<svg width="${widthInches}in" height="${heightInches}in" viewBox="0 0 ${widthPts} ${heightPts}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        .mapbox-feature { vector-effect: non-scaling-stroke; }
+        .mapbox-coastline { stroke: #000000; stroke-width: 1.0; fill: none; }
+        .mapbox-lake { stroke: #000000; stroke-width: 0.75; fill: none; }
+        .mapbox-river { stroke: #000000; stroke-width: 0.5; fill: none; }
+        .mapbox-boundary { stroke: #000000; stroke-width: 0.25; fill: none; opacity: 0.5; }
+        .mapbox-road { stroke: #000000; stroke-width: 0.25; fill: none; opacity: 0.3; }
+      </style>
+    </defs>
+    
+    <!-- Content group with margins -->
+    <g transform="translate(${margin}, ${margin})">
+  `
+  
+  const mapContentY = 50
+  const mapContentHeight = contentHeight - 100
+  
+  try {
+          // Fetch real geographic features from OpenStreetMap
+      console.log('Fetching real geographic data for geographic features layer...')
+      const geoFeatures = await getMapboxGeographicFeatures(bounds, ['water', 'admin'])
+      
+      if (geoFeatures.length === 0) {
+        throw new Error('No geographic features found from OpenStreetMap.')
+      }
+      
+      console.log(`Successfully fetched ${geoFeatures.length} geographic features for features layer`)
+      
+      // Convert geographic features to SVG
+      const realGeographicFeatures = mapboxFeaturesToSVG(
+        geoFeatures,
+        bounds,
+        contentWidth,
+        mapContentHeight
+      )
+    
+    svgContent += `
+      <!-- Geographic Features from Mapbox -->
+      <g transform="translate(0, ${mapContentY})">
+        ${realGeographicFeatures}
+      </g>
+    `
+    
+  } catch (error) {
+    console.error('Failed to fetch geographic features:', error)
+    throw error
+  }
+  
+  svgContent += `
+    </g>
+  </svg>`
+  
+  return svgContent
+}
+
+// Generate route path layer (medium depth engraving)
+async function generateRoutePathLayerSVG(order: OrderData): Promise<string> {
+  const { widthInches, heightInches } = order.productionData.dimensions
+  const { mapData } = order
+  
+  // Convert inches to points (72 DPI)
+  const widthPts = widthInches * 72
+  const heightPts = heightInches * 72
+  const margin = 36 // 0.5 inch margin for content
+  const contentWidth = widthPts - (2 * margin)
+  const contentHeight = heightPts - (2 * margin)
+  
+  // Calculate map bounds from locations and route
+  const bounds = calculateMapBounds(mapData)
+  
+  // Start building SVG content for route path only
+  let svgContent = `<svg width="${widthInches}in" height="${heightInches}in" viewBox="0 0 ${widthPts} ${heightPts}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        .route-path { stroke: black; stroke-width: 2.0; fill: none; stroke-dasharray: none; }
+        .route-segment { stroke: black; stroke-width: 1.5; fill: none; }
+      </style>
+    </defs>
+    
+    <!-- Content group with margins -->
+    <g transform="translate(${margin}, ${margin})">
+  `
+  
+  const mapContentY = 50
+  const mapContentHeight = contentHeight - 100
+  
+  // Add route path
+  const routePath = generateRoutePath(mapData, bounds, contentWidth, mapContentHeight)
+  svgContent += `
+    <!-- Route Path -->
+    <g transform="translate(0, ${mapContentY})" class="route-group">
+      ${routePath}
+    </g>
+  `
+  
+  svgContent += `
+    </g>
+  </svg>`
+  
+  return svgContent
+}
+
+// Legacy function - now calls the text layer
 async function generateEngraveLayerSVG(order: OrderData): Promise<string> {
   const { widthInches, heightInches } = order.productionData.dimensions
   const { mapData } = order
@@ -769,4 +963,204 @@ export function updateOrderStatus(
   } catch (error) {
     console.error('Failed to update order status:', error)
   }
+} 
+
+// Generate text engraving DXF
+function generateTextEngraveDXF(order: OrderData): string {
+  const { mapData } = order
+  
+  // Simple DXF with text and symbols only
+  let dxfContent = `0
+SECTION
+2
+ENTITIES
+`
+  
+  // Add location points and text labels
+  mapData.locations.forEach((location, index) => {
+    // Add text label
+    dxfContent += `0
+TEXT
+5
+${300 + index}
+8
+TEXT-ENGRAVE
+62
+7
+10
+${location.lng + 100}
+20
+${location.lat}
+40
+0.08
+1
+${location.name}
+`
+  })
+  
+  // Add title text
+  dxfContent += `0
+TEXT
+5
+100
+8
+TEXT-ENGRAVE
+62
+7
+10
+0
+20
+0
+40
+0.15
+1
+${mapData.template.name}
+`
+  
+  dxfContent += `0
+ENDSEC
+0
+EOF`
+  
+  return dxfContent
+}
+
+// Generate geographic features DXF
+function generateGeographicFeaturesDXF(order: OrderData): string {
+  // Placeholder for geographic features in DXF format
+  let dxfContent = `0
+SECTION
+2
+ENTITIES
+`
+  
+  // Add placeholder geographic feature paths
+  dxfContent += `0
+LWPOLYLINE
+5
+200
+8
+GEOGRAPHIC-FEATURES
+62
+7
+70
+0
+90
+4
+10
+0
+20
+0
+10
+100
+20
+0
+10
+100
+20
+100
+10
+0
+20
+100
+`
+  
+  dxfContent += `0
+ENDSEC
+0
+EOF`
+  
+  return dxfContent
+}
+
+// Generate route path DXF
+function generateRoutePathDXF(order: OrderData): string {
+  // Placeholder for route path in DXF format
+  let dxfContent = `0
+SECTION
+2
+ENTITIES
+`
+  
+  // Add route path as polyline
+  dxfContent += `0
+LWPOLYLINE
+5
+300
+8
+ROUTE-PATH
+62
+7
+70
+0
+90
+2
+10
+50
+20
+50
+10
+150
+20
+150
+`
+  
+  dxfContent += `0
+ENDSEC
+0
+EOF`
+  
+  return dxfContent
+}
+
+// Generate manufacturing process guide
+function generateManufacturingProcessGuide(order: OrderData): string {
+  return `MANUFACTURING PROCESS GUIDE
+Order #${order.orderNumber}
+
+MULTI-LAYER MANUFACTURING APPROACH:
+
+1. CUT LAYER (cut-${order.orderNumber}.svg)
+   - Operation: Laser cutting or CNC routing
+   - Purpose: Cut material to final dimensions
+   - Settings: High power, single pass
+   - File: Red lines for cutting path
+
+2. TEXT ENGRAVING LAYER (text-engrave-${order.orderNumber}.svg)
+   - Operation: Fine laser engraving or small engraving bit
+   - Purpose: Text, location labels, symbols
+   - Depth: 0.005" - 0.01" 
+   - Settings: Low power, high speed for crisp text
+
+3. GEOGRAPHIC FEATURES LAYER (geographic-features-${order.orderNumber}.svg)
+   - Operation: Deep CNC routing or laser etching
+   - Purpose: Coastlines, lakes, rivers for tactile detail
+   - Depth: 0.02" - 0.05" for tactile feel
+   - Settings: Multiple passes, moderate speed
+
+4. ROUTE PATH LAYER (route-path-${order.orderNumber}.svg)
+   - Operation: Medium depth engraving
+   - Purpose: Journey route highlighting
+   - Depth: 0.015" - 0.03"
+   - Settings: Single or double pass
+
+RECOMMENDED PROCESSING ORDER:
+1. Cut to size (cut layer)
+2. Deep geographic features (if using CNC)
+3. Medium route paths
+4. Fine text engraving (last to avoid damage)
+
+MACHINE SETTINGS:
+Material: ${order.productionData.material.name}
+Cut Speed: ${order.productionData.machineSettings.cutSpeed}
+Cut Power: ${order.productionData.machineSettings.cutPower}%
+Engrave Speed: ${order.productionData.machineSettings.engraveSpeed}
+Engrave Power: ${order.productionData.machineSettings.engravePower}%
+
+QUALITY NOTES:
+- Test engraving depths on scrap material first
+- Clean chips between operations
+- Check registration between layers
+- Verify all text is legible before final assembly
+`
 } 
