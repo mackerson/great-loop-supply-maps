@@ -322,21 +322,6 @@ export function StyleCustomizer({ onBack, onNext }: StyleCustomizerProps) {
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Template styling info */}
-            {templateStyling && (
-              <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
-                <p className="font-medium mb-1">Template Styling:</p>
-                <p>
-                  {selectedTemplate?.community === 'boating' 
-                    ? "Optimized for nautical aesthetics with maritime colors and styling"
-                    : selectedTemplate?.community === 'hiking'
-                    ? "Designed for outdoor adventures with natural colors and trail-inspired styling"
-                    : "Customized styling for your specific journey type"
-                  }
-                </p>
-              </div>
-            )}
           </div>
         </div>
 

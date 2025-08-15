@@ -42,6 +42,7 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
   // Expose map instance and export function through ref
   useImperativeHandle(ref, () => ({
     getMap: () => map,
+    resize: () => map?.resize(),
     exportImage: async (targetWidth?: number, targetHeight?: number) => {
       if (!map) throw new Error('Map not initialized')
       
@@ -66,7 +67,7 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
             container.style.height = `${targetHeight}px`
             map.resize()
             
-            // Re-fit bounds for the new aspect ratio
+            // Re-fit bounds for the new aspect ratio with improved framing
             if (selectedTemplate?.config.routeData?.bounds && locations.length > 0) {
               // Use template bounds for templates with route data (like Great Loop)
               const templateBounds = selectedTemplate.config.routeData.bounds
@@ -75,23 +76,41 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
                 [templateBounds.east, templateBounds.north]
               )
               
-                             // Calculate padding based on aspect ratio (smaller = tighter zoom)
-               const aspectRatio = targetWidth / targetHeight
-               let padding: number | { top: number; bottom: number; left: number; right: number } = 20
-               
-               if (aspectRatio < 0.8) {
-                 // Portrait: much tighter for mobile
-                 padding = { top: 10, bottom: 10, left: 15, right: 15 }
-               } else if (aspectRatio > 1.5) {
-                 // Landscape: more vertical padding  
-                 padding = { top: 40, bottom: 40, left: 20, right: 20 }
-               }
+              // Calculate padding based on aspect ratio and target size for better framing
+              const aspectRatio = targetWidth / targetHeight
+              const basePercentage = Math.min(targetWidth, targetHeight) * 0.06 // Tighter base padding
+              let padding: number | { top: number; bottom: number; left: number; right: number } = basePercentage
               
-              map.fitBounds(bounds, { padding })
+              if (aspectRatio < 0.8) {
+                // Portrait: tighter framing
+                padding = { 
+                  top: basePercentage * 0.8, 
+                  bottom: basePercentage * 0.8, 
+                  left: basePercentage, 
+                  right: basePercentage 
+                }
+              } else if (aspectRatio > 1.5) {
+                // Landscape: balanced framing
+                padding = { 
+                  top: basePercentage * 1.2, 
+                  bottom: basePercentage * 1.2, 
+                  left: basePercentage * 0.8, 
+                  right: basePercentage * 0.8 
+                }
+              }
+              
+              map.fitBounds(bounds, { 
+                padding,
+                maxZoom: 6 // Prevent over-zooming for large template routes
+              })
             } else if (locations.length > 1) {
               // For multiple locations without template bounds, fit to all locations
               const bounds = getBounds(locations)
-              map.fitBounds(bounds, { padding: 80 })
+              const basePercentage = Math.min(targetWidth, targetHeight) * 0.1
+              map.fitBounds(bounds, { 
+                padding: basePercentage,
+                maxZoom: 12 
+              })
             } else if (locations.length === 1) {
               // For single location, center and use appropriate zoom
               map.setCenter([locations[0].lng, locations[0].lat])
@@ -523,7 +542,7 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
         }
       })
 
-    // Fit map to show appropriate view
+    // Fit map to show appropriate view with better framing
     if (selectedTemplate?.config.routeData?.bounds && locations.length > 0) {
       // Use template bounds for templates with route data (like Great Loop)
       const templateBounds = selectedTemplate.config.routeData.bounds
@@ -531,11 +550,27 @@ export const MapRenderer = forwardRef<MapRendererRef, MapRendererProps>(({
         [templateBounds.west, templateBounds.south],
         [templateBounds.east, templateBounds.north]
       )
-      mapInstance.fitBounds(bounds, { padding: 40 })
+      
+      // Calculate better padding based on container size for tighter framing
+      const container = mapContainerRef.current
+      const padding = container ? Math.min(container.offsetWidth, container.offsetHeight) * 0.08 : 60
+      
+      mapInstance.fitBounds(bounds, { 
+        padding: padding,
+        maxZoom: 6 // Prevent too close zoom for large templates
+      })
     } else if (locations.length > 1) {
       // For multiple locations without template bounds, fit to all locations
       const bounds = getBounds(locations)
-      mapInstance.fitBounds(bounds, { padding: 80 })
+      
+      // Calculate responsive padding for user locations
+      const container = mapContainerRef.current
+      const padding = container ? Math.min(container.offsetWidth, container.offsetHeight) * 0.12 : 100
+      
+      mapInstance.fitBounds(bounds, { 
+        padding: padding,
+        maxZoom: 12 // Allow closer zoom for user locations
+      })
     } else if (locations.length === 1) {
       // For single location without template bounds, center and zoom
       mapInstance.setCenter([locations[0].lng, locations[0].lat])

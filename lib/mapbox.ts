@@ -106,7 +106,7 @@ function mockGeocode(query: string): GeocodeResult[] {
   )
 }
 
-// Create map bounds from an array of locations
+// Create map bounds from an array of locations with optimized framing
 export function getBounds(locations: { lat: number; lng: number }[]): mapboxgl.LngLatBounds {
   if (locations.length === 0) {
     return new mapboxgl.LngLatBounds()
@@ -117,7 +117,14 @@ export function getBounds(locations: { lat: number; lng: number }[]): mapboxgl.L
     bounds.extend([location.lng, location.lat])
   })
   
-  // Add some padding
+  // For single location, add minimal bounds
+  if (locations.length === 1) {
+    const location = locations[0]
+    const offset = 0.01 // Small offset for single location
+    bounds.extend([location.lng - offset, location.lat - offset])
+    bounds.extend([location.lng + offset, location.lat + offset])
+  }
+  
   return bounds
 }
 

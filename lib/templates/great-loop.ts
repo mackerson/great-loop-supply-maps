@@ -193,10 +193,10 @@ export const greatLoopTemplate: Template = {
         'Trent-Severn Waterway'
       ],
       bounds: {
-        north: 49.0,
-        south: 24.0,
-        east: -66.0,
-        west: -125.0
+        north: 46.8,   // Just north of the Great Lakes (Mackinac area)
+        south: 25.5,   // Just south of Miami/Keys
+        east: -68.5,   // Just east of Maine coast  
+        west: -91.8    // Just west of Mississippi River/Baton Rouge
       },
       waypoints: [
         { id: 'chicago', name: 'Chicago', coordinates: [-87.6298, 41.8781], type: 'waypoint', description: 'Gateway to the Great Lakes' },
